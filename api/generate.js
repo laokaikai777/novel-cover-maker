@@ -138,57 +138,27 @@ async function buildPromptWithClaude(input) {
     .map((c, i) => `【第${i + 1}章节选 · ${c.name || ''}】\n${(c.content || '').slice(0, 1500)}`)
     .join('\n\n');
 
-  const userPrompt = `【系统指令】
-你是一位资深的中文网文封面策划师，深谙起点、晋江、番茄等平台的封面美学。
-目标用户群体：中国大陆读者，输出的封面气质要符合中国网文读者审美。
+  const userPrompt = `你是网文封面策划师。直接输出英文image2 prompt，不要解释、markdown、前后缀。
 
-你的任务：把用户提供的小说信息，转化为一段精准、画面感极强的图像生成提示词，用于 gpt-image-2 模型生成中文网文封面。
+规则：
+- 竖版${input.ratio}，留顶部25%给书名、底部10%给作者名
+- 主角东亚相貌，衣着符合题材
+- 画风用中国国风≠日漫西幻；国风大气=宏大山河龙凤宫阙朱金赤云；国风细腻=工笔花鸟汉服淡雅烟雨
+- 题材落具体视觉元素（仙侠→道袍飞剑云海；末世→废墟防毒面具；玄幻→异兽神魔；都市→现代街景）
+- 书名"${input.title}"作者"${input.author}"原文照搬，title text at top + author below in smaller variant
+- 含：主体、场景、构图、画风、文字排版、masterpiece ultra detailed professional book cover
 
-【输出格式严格遵守】
-直接输出英文提示词，不要任何解释、不要 markdown、不要前后缀。提示词需包含：
-1. 主体（主角形象/标志性场景/核心意象）—— 从简介和章节中提炼
-2. 场景与氛围（光线、天气、地点、色调）
-3. 构图（主体位置、视角、景深、留白要求）
-4. 画风指令（已由用户选定/AI 自决/用户自定义，按规则应用）
-5. 文字排版指令（必须！明确写出书名、作者名、位置、字体风格）
-6. 质量后缀（masterpiece, ultra detailed, professional book cover, vertical composition）
+${input.genre === '__auto__' ? '题材自决：从简介判断小说类型。' : ''}${input.style === '__auto__' ? '画风自决：配合题材选最合适画风。' : ''}${input.font === '__auto__' ? '字体自决：配合题材选最合适字体。' : ''}
+小说信息：
+书名《${input.title}》作者 ${input.author}
+题材：${genre.text}
+画风：${style.text}
+字体：${font.text}
+简介：${input.intro}
+${input.extra ? '特别要求：' + input.extra : ''}
+${chapterText ? '章节节选（仅供理解氛围，勿复述）：\n' + chapterText : ''}
 
-【关键规则】
-- 目标人群是中国读者，主角默认东亚相貌（除非简介明确写了外国背景），衣着要符合题材文化背景
-- 主角形象要生动具体：年龄、衣着、表情、神态、武器/法宝
-- 留出顶部 25% 给书名、底部 10% 给作者名（提示词里明确说："top 25% area reserved for title, with subtle backdrop"）
-- 文字排版必须写明：title text "{书名}" displayed prominently at top, with the specified font style; author name "{作者名}" displayed below title in smaller variant
-- 不要画面元素冲突：选定题材风格统一
-- 中文书名作者名按用户原文照搬到 prompt 里，用引号包裹
-- 题材氛围必须落到具体视觉元素（仙侠→道袍/飞剑/云海；末世→废墟/防毒面具）
-
-【关于"国风"】
-"国风大气"和"国风细腻"是中国国家风格（Chinese national style / guofeng），跟日漫、西幻完全不同。
-- 国风大气：宏大山河、龙凤神兽、宫阙楼宇、朱金赤云、雄浑磅礴
-- 国风细腻：工笔花鸟、汉服仕女、淡雅烟雨、瓷青胭脂、婉约诗意
-绝不要用日系或西幻审美来理解"国风"。
-
-【关于 AI 自决】
-当某个维度（题材/画风/字体）标注为"AI 自决"时，你要主动判断：
-- 题材自决 → 从简介和章节里识别小说类型
-- 画风自决 → 配合题材选最合适的画风（仙侠配国风、科幻配 CG、校园配水彩等）
-- 字体自决 → 配合题材选最合适的字体（仙侠配毛笔、都市配宋体、科幻配黑体等）
-然后把你的判断结果落到提示词里，不要在输出中说明"我选了 XX"，直接写到 prompt 中。
-
-【用户提供的小说信息】
-【书名】${input.title}
-【作者】${input.author}
-【题材】${genre.text}
-【画风】${style.text}
-【书名字体风格】${font.text}
-【封面比例】${input.ratio}（vertical portrait）
-【小说简介】
-${input.intro}
-
-${input.extra ? `【特别要求】\n${input.extra}\n` : ''}
-${chapterText ? `【章节节选（仅供你理解故事氛围，不要直接复述）】\n${chapterText}\n` : ''}
-
-直接输出英文提示词，开始：`;
+输出英文prompt：`;
 
   const url = `${baseUrl}/v1/chat/completions`;
   const body = {

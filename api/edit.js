@@ -49,30 +49,19 @@ function getConfig() {
 async function buildEditPromptWithClaude(input) {
   const { baseUrl, token } = getConfig();
 
-  const userPrompt = `【系统指令】
-你是一位资深的中文网文封面策划师，正在指导 gpt-image-2 模型对一张已生成的封面进行修改。
-任务：把用户的中文修改要求，翻译成精准、可执行的英文图像编辑指令。
+  const userPrompt = `你是网文封面策划师。把用户中文改图要求译为英文edit prompt，直接输出，不要解释。
 
-【输出格式严格遵守】
-直接输出英文 edit prompt，不要任何解释、不要 markdown、不要前后缀。
+规则：只描述需改动的部分，保留其他元素。书名作者名原文用引号照搬。保持封面整体气质。要具体（"更暖金调加强月光"而非"更好看"）。含keep masterpiece quality professional book cover。
 
-【关键规则】
-- 只描述【需要改动】的部分，明确告诉模型保留其他元素
-- 如果修改涉及书名、作者名等中文文字，原文用引号照搬
-- 保持封面整体气质（题材氛围、构图比例）不被破坏
-- 措辞要具体：不要"更好看"，要"更暖的金色调、加强月光辉光、放大主角"
-- 包含质量后缀：keep masterpiece quality, professional book cover style
+书名"${input.title}"作者"${input.author}"
+简介：${input.intro || '无'}
 
-【用户信息】
-这是一张网文小说封面，书名 "${input.title}"，作者 "${input.author}"。
-原小说简介：${input.intro || '（用户未提供）'}
-
-用户的修改要求（中文）：
+用户要求：
 """
 ${input.instruction}
 """
 
-请输出英文 edit prompt：`;
+英文edit prompt：`;
 
   const url = `${baseUrl}/v1/chat/completions`;
   const body = {
