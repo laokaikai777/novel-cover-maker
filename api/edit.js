@@ -1,5 +1,6 @@
 // /api/edit
-// 对话改图：用户用自然语言描述要改什么 → Claude 翻译成 edit prompt → 调 image2 改图
+// 对话改图：用户自然语言修改要求 → 模板直出 edit prompt → 调 image2 改图
+// Vercel Serverless Function
 
 function humanizeError(raw, stage) {
   const s = String(raw || '').toLowerCase();
@@ -16,26 +17,6 @@ function humanizeError(raw, stage) {
   return raw;
 }
 
-// 解析 Claude 响应（先试纯 JSON，再试 SSE）
-function parseClaudeResponse(text) {
-  try {
-    const j = JSON.parse(text);
-    const content = j.choices?.[0]?.message?.content;
-    if (content) return content.trim();
-  } catch {}
-  const chunks = text.split('\n\n');
-  let content = '';
-  for (const chunk of chunks) {
-    const line = chunk.replace(/^data: /, '').trim();
-    if (!line || line === '[DONE]') continue;
-    try {
-      const j = JSON.parse(line);
-      content += j.choices?.[0]?.message?.content || j.choices?.[0]?.delta?.content || '';
-    } catch {}
-  }
-  return content.trim();
-}
-
 function getConfig() {
   const baseUrl = (process.env.ANTHROPIC_BASE_URL || '').replace(/\/$/, '');
   const token = process.env.ANTHROPIC_AUTH_TOKEN;
@@ -45,52 +26,14 @@ function getConfig() {
   return { baseUrl, token };
 }
 
-// 让 Claude 把用户的中文修改要求翻译成精准的英文 edit prompt
-async function buildEditPromptWithClaude(input) {
-  const { baseUrl, token } = getConfig();
+// ─────────────────────────────────────
+// 模板直出 edit prompt（不再经过 Claude）
+// ─────────────────────────────────────
+function buildEditPrompt(input) {
+  const title = input.title ? ` for "${input.title}"` : '';
+  const author = input.author ? ` by ${input.author}` : '';
 
-  const userPrompt = `你是网文封面策划师。把用户中文改图要求译为英文edit prompt，直接输出，不要解释。
-
-规则：只描述需改动的部分，保留其他元素。书名作者名原文用引号照搬。保持封面整体气质。要具体（"更暖金调加强月光"而非"更好看"）。含keep masterpiece quality professional book cover。
-
-书名"${input.title}"作者"${input.author}"
-简介：${input.intro || '无'}
-
-用户要求：
-"""
-${input.instruction}
-"""
-
-英文edit prompt：`;
-
-  const url = `${baseUrl}/v1/chat/completions`;
-  const body = {
-    model: 'claude-3-7-sonnet-20250219',
-    max_tokens: 800,
-    stream: false,
-    messages: [
-      { role: 'user', content: userPrompt },
-    ],
-  };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`改图提示词生成失败: HTTP ${res.status} ${t.slice(0, 200)}`);
-  }
-
-  const text = await res.text();
-  const prompt = parseClaudeResponse(text);
-  if (!prompt) throw new Error(`改图提示词生成失败: 返回为空 (原始 ${text.length} 字符)`);
-  return prompt;
+  return `Edit this book cover image${title}${author}. Modification request: ${input.instruction}. Apply only the requested changes. Preserve all other visual elements, composition, text placement, and overall style. Keep masterpiece quality, professional book cover design.`.trim();
 }
 
 // 调 image2 改图（multipart 上传 base64 转 buffer）
@@ -169,7 +112,7 @@ module.exports = async (req, res) => {
     if (!input.instruction) return res.status(400).json({ ok: false, error: '请告诉我要改什么' });
     if (!input.imageBase64) return res.status(400).json({ ok: false, error: '没有原图' });
 
-    const prompt = await buildEditPromptWithClaude(input);
+    const prompt = buildEditPrompt(input);
     const imageBase64 = await callImage2Edit(prompt, input.imageBase64, input.size);
 
     return res.status(200).json({ ok: true, image: imageBase64, prompt });
