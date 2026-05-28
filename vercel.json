@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "functions": {
+    "api/generate.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "api/edit.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" }
+  ]
+}

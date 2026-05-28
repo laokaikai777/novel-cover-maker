@@ -1,0 +1,9 @@
+{
+  "name": "novel-cover-maker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "书的光 · 网文封面生成器",
+  "engines": {
+    "node": ">=18"
+  }
+}

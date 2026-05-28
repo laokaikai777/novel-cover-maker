@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="书的光 · 网文小说封面生成器。填上书名、作者和故事简介，AI 帮你画一张配得上故事的封面。" />
+<meta name="theme-color" content="#050b20" />
+<meta property="og:title" content="书的光 · 网文封面生成器" />
+<meta property="og:description" content="每一本书，都值得一个像样的开始。" />
+<meta property="og:type" content="website" />
+<title>书的光 · 网文封面生成器</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          night: {
+            900: '#050b20',
+            800: '#0a1535',
+            700: '#0f1d4a',
+            600: '#162557',
+          },
+          gold: {
+            400: '#fde68a',
+            500: '#fbbf24',
+            600: '#d97706',
+          },
+          paper: '#f5e6d3',
+          ink: '#1a1325',
+        },
+        fontFamily: {
+          serif: ['"Noto Serif SC"', 'serif'],
+          deco: ['"Cormorant Garamond"', 'serif'],
+          brush: ['"Ma Shan Zheng"', 'cursive'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  html, body { -webkit-tap-highlight-color: transparent; }
+  body {
+    background: radial-gradient(ellipse at top, #162557 0%, #0a1535 35%, #050b20 100%);
+    min-height: 100vh;
+    color: #f5e6d3;
+    font-family: 'Noto Serif SC', serif;
+    overflow-x: hidden;
+  }
+
+  /* ───── 星空 / 流萤 ───── */
+  .stars, .fireflies {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .star {
+    position: absolute; width: 2px; height: 2px;
+    background: #fde68a; border-radius: 50%;
+    box-shadow: 0 0 6px #fbbf24;
+    animation: twinkle var(--d, 3s) ease-in-out infinite;
+    opacity: 0.6;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50%      { opacity: 1;   transform: scale(1.3); }
+  }
+  .firefly {
+    position: absolute; width: 4px; height: 4px;
+    background: radial-gradient(circle, #fde68a 0%, rgba(251,191,36,0.4) 40%, transparent 70%);
+    border-radius: 50%;
+    animation: drift var(--dur, 18s) ease-in-out infinite;
+    filter: blur(0.3px);
+  }
+  @keyframes drift {
+    0%   { transform: translate(0,0) scale(1);   opacity: 0; }
+    10%  { opacity: 0.9; }
+    50%  { transform: translate(var(--dx,40px), var(--dy,-60px)) scale(1.4); opacity: 1; }
+    90%  { opacity: 0.7; }
+    100% { transform: translate(calc(var(--dx,40px) * 1.6), calc(var(--dy,-60px) * 1.6)) scale(0.9); opacity: 0; }
+  }
+
+  /* ───── 月亮辉光 ───── */
+  .moon {
+    position: fixed; top: 24px; right: -30px; width: 180px; height: 180px;
+    background: radial-gradient(circle at 35% 35%, #fff7d6 0%, #fbbf24 25%, rgba(251,191,36,0.15) 55%, transparent 75%);
+    border-radius: 50%; filter: blur(2px); pointer-events: none; z-index: 0;
+    animation: moon-pulse 6s ease-in-out infinite;
+  }
+  @media (min-width: 768px) {
+    .moon { top: 40px; right: 40px; width: 260px; height: 260px; }
+  }
+  @keyframes moon-pulse {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 1;    transform: scale(1.04); }
+  }
+
+  /* ───── 玻璃卡片 ───── */
+  .glass {
+    background: linear-gradient(145deg, rgba(245,230,211,0.06), rgba(251,191,36,0.03));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(251,191,36,0.18);
+    box-shadow:
+      0 8px 32px rgba(5,11,32,0.5),
+      inset 0 1px 0 rgba(253,230,138,0.15);
+  }
+
+  /* ───── 输入控件 ───── */
+  .field {
+    background: rgba(5,11,32,0.4);
+    border: 1px solid rgba(251,191,36,0.2);
+    color: #f5e6d3;
+    transition: all 0.25s ease;
+    font-family: 'Noto Serif SC', serif;
+  }
+  .field::placeholder { color: rgba(245,230,211,0.35); }
+  .field:focus {
+    outline: none;
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251,191,36,0.15), inset 0 1px 0 rgba(253,230,138,0.2);
+    background: rgba(15,29,74,0.5);
+  }
+  .field:focus:not(:focus-visible) { outline: none; }
+  .field:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+  }
+
+  /* ───── 主按钮：烛火呼吸 ───── */
+  .btn-primary {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+    color: #0a1535;
+    font-weight: 700;
+    box-shadow: 0 0 24px rgba(251,191,36,0.4), 0 4px 16px rgba(217,119,6,0.3);
+    animation: candle 3s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+  @keyframes candle {
+    0%, 100% { box-shadow: 0 0 24px rgba(251,191,36,0.4), 0 4px 16px rgba(217,119,6,0.3); }
+    50%      { box-shadow: 0 0 36px rgba(251,191,36,0.7), 0 4px 20px rgba(217,119,6,0.5); }
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,247,214,0.4), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  .btn-primary:active::before { transform: translateX(100%); }
+  .btn-primary:disabled { opacity: 0.5; animation: none; cursor: not-allowed; }
+
+  /* ───── 选项芯片 ───── */
+  .chip {
+    background: rgba(5,11,32,0.4);
+    border: 1px solid rgba(251,191,36,0.18);
+    color: #f5e6d3;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .chip:active { transform: scale(0.96); }
+  .chip.active {
+    background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.15));
+    border-color: #fbbf24;
+    color: #fde68a;
+    box-shadow: 0 0 12px rgba(251,191,36,0.3), inset 0 1px 0 rgba(253,230,138,0.2);
+  }
+
+  /* ───── 标题装饰 ───── */
+  .title-deco {
+    background: linear-gradient(180deg, #fde68a 0%, #fbbf24 60%, #d97706 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 12px rgba(251,191,36,0.4));
+  }
+
+  .divider-deco {
+    display: flex; align-items: center; gap: 12px;
+    color: rgba(251,191,36,0.5);
+  }
+  .divider-deco::before, .divider-deco::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(251,191,36,0.4), transparent);
+  }
+
+  /* ───── 加载动画：羽毛笔 ───── */
+  .loading-orb {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(251,191,36,0.6) 0%, rgba(251,191,36,0.1) 60%, transparent 80%);
+    animation: orb-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes orb-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.5; }
+    50%      { transform: scale(1.15); opacity: 1; }
+  }
+
+  /* ───── 封面阴影 ───── */
+  .cover-frame {
+    box-shadow:
+      0 0 0 1px rgba(251,191,36,0.3),
+      0 20px 60px rgba(5,11,32,0.8),
+      0 0 80px rgba(251,191,36,0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(5,11,32,0.6);
+  }
+
+  /* ───── 进度点 ───── */
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(251,191,36,0.25);
+    transition: all 0.3s;
+  }
+  .step-dot.active { background: #fbbf24; box-shadow: 0 0 10px rgba(251,191,36,0.6); width: 24px; border-radius: 4px; }
+
+  /* ───── 通用 ───── */
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { scrollbar-width: none; }
+
+  textarea { resize: none; }
+
+  /* 章节文件 chip */
+  .file-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: #fde68a;
+  }
+
+  /* 候选缩略图 */
+  .thumb {
+    aspect-ratio: 3 / 4;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid rgba(251,191,36,0.2);
+    transition: border-color 0.2s, transform 0.2s;
+    background: rgba(5,11,32,0.6);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb:hover { border-color: rgba(251,191,36,0.5); }
+  .thumb.active {
+    border-color: #fbbf24;
+    box-shadow: 0 0 12px rgba(251,191,36,0.5);
+    transform: scale(1.03);
+  }
+
+  /* 键盘焦点提示（chip / 按钮） */
+  .chip:focus-visible, .btn-primary:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 3px;
+  }
+
+  /* 减弱动效偏好 */
+  @media (prefers-reduced-motion: reduce) {
+    .star, .firefly, .moon, .loading-orb, .btn-primary {
+      animation: none !important;
+    }
+    .moon { opacity: 0.85; }
+    * {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
+  /* 对话气泡 */
+  .bubble-user {
+    background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(217,119,6,0.1));
+    border: 1px solid rgba(251,191,36,0.3);
+    color: #fde68a;
+  }
+  .bubble-ai {
+    background: rgba(5,11,32,0.5);
+    border: 1px solid rgba(251,191,36,0.15);
+    color: #f5e6d3;
+  }
+
+  /* 风格 / 比例选择器横向滚动 */
+  .row-scroll {
+    display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 12px;
+  }
+
+  /* iOS 安全区 */
+  @supports (padding: max(0px)) {
+    .safe-bottom { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+
+<body class="relative">
+
+<!-- 月亮 -->
+<div class="moon"></div>
+
+<!-- 星空 -->
+<div class="stars" id="stars"></div>
+<!-- 流萤 -->
+<div class="fireflies" id="fireflies"></div>
+
+<!-- 主容器 -->
+<main class="relative z-10 mx-auto w-full max-w-md md:max-w-2xl lg:max-w-3xl px-5 md:px-8 pt-10 md:pt-14 pb-24 safe-bottom">
+
+  <!-- ═════════════ 顶部品牌 ═════════════ -->
+  <header class="text-center mb-8 md:mb-12">
+    <div class="font-deco text-sm md:text-base tracking-[0.4em] text-gold-400/70 mb-2">A LIGHT FROM THE BOOK</div>
+    <h1 class="font-brush text-5xl md:text-6xl lg:text-7xl title-deco leading-tight mb-1">书的光</h1>
+    <p class="text-xs md:text-sm text-paper/60 tracking-widest">网 · 文 · 封 · 面 · 生 · 成 · 器</p>
+  </header>
+
+  <!-- ═════════════ 步骤指示 ═════════════ -->
+  <div class="flex justify-center items-center gap-2 mb-6" id="stepDots">
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+  </div>
+
+  <!-- ═════════════ 步骤 1：基础资料 ═════════════ -->
+  <section id="step1" class="step glass rounded-3xl p-6 md:p-10 space-y-5 md:space-y-6">
+    <div class="flex items-center gap-3 mb-1">
+      <i class="fa fa-pencil text-gold-500"></i>
+      <h2 class="font-serif text-xl text-paper">为你的故事起个名字</h2>
+    </div>
+
+    <!-- 灵感模板 -->
+    <div>
+      <div class="text-xs text-gold-400/70 mb-2 tracking-wider flex items-center gap-2">
+        <i class="fa fa-lightbulb-o text-gold-500/70"></i>
+        <span>第一次来？点一个范例直接试试</span>
+      </div>
+      <div class="flex flex-wrap gap-2" id="templateRow"></div>
+    </div>
+
+    <!-- 书名 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-2 block tracking-wider">书 名 <span class="text-rose-300">*</span></label>
+      <input id="bookTitle" type="text" maxlength="20"
+             class="field w-full rounded-xl px-4 py-3 text-base"
+             placeholder="例如：剑落星河" />
+    </div>
+
+    <!-- 作者 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-2 block tracking-wider">作 者 名 <span class="text-rose-300">*</span></label>
+      <input id="authorName" type="text" maxlength="15"
+             class="field w-full rounded-xl px-4 py-3 text-base"
+             placeholder="例如：观山海" />
+    </div>
+
+    <!-- 简介 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-2 block tracking-wider">小 说 简 介 <span class="text-rose-300">*</span></label>
+      <textarea id="bookIntro" rows="4" maxlength="500"
+                class="field w-full rounded-xl px-4 py-3 text-sm leading-relaxed"
+                placeholder="越多细节，画面越戳人。可以写：主角是谁、故事发生在哪、最关键的一个场景——"></textarea>
+      <div class="text-right text-xs text-paper/40 mt-1"><span id="introCount">0</span> / 500</div>
+    </div>
+
+    <!-- 章节上传（选填） -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-2 block tracking-wider">附 上 章 节 节 选（选填，5-10 章最佳）</label>
+      <label for="chapterFiles"
+             class="field w-full rounded-xl px-4 py-3 text-sm flex items-center justify-center gap-2 cursor-pointer hover:bg-night-700/50 transition">
+        <i class="fa fa-cloud-upload text-gold-500"></i>
+        <span class="text-paper/70">点击上传 .txt 文件</span>
+      </label>
+      <input id="chapterFiles" type="file" accept=".txt,text/plain" multiple class="hidden" />
+      <div id="chapterList" class="flex flex-wrap gap-2 mt-3"></div>
+      <p class="text-xs text-paper/40 mt-2 leading-relaxed">
+        <i class="fa fa-info-circle text-gold-500/60 mr-1"></i>
+        附上 3-5 章正文，AI 会读完再画——画面会更像你心里的样子
+      </p>
+    </div>
+
+    <!-- 下一步 -->
+    <button onclick="goStep(2)"
+            class="btn-primary w-full rounded-xl py-3.5 text-base mt-2">
+      下一步 · 选风格 <i class="fa fa-angle-right ml-1"></i>
+    </button>
+  </section>
+
+  <!-- ═════════════ 步骤 2：风格 / 比例 ═════════════ -->
+  <section id="step2" class="step glass rounded-3xl p-6 md:p-10 space-y-6 hidden">
+    <div class="flex items-center gap-3 mb-1">
+      <i class="fa fa-paint-brush text-gold-500"></i>
+      <h2 class="font-serif text-xl text-paper">为故事挑一种气质</h2>
+    </div>
+
+    <!-- 题材 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">题 材</label>
+      <div class="grid grid-cols-3 md:grid-cols-4 gap-2.5" id="genreGrid"></div>
+      <input id="genreCustom" type="text" maxlength="30"
+             class="field w-full rounded-xl px-4 py-2.5 text-sm mt-2.5 hidden"
+             placeholder="自己填一个，比如：宫斗 / 西幻种田 / 克苏鲁..." />
+    </div>
+
+    <!-- 画风 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">画 风</label>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5" id="styleGrid"></div>
+      <input id="styleCustom" type="text" maxlength="30"
+             class="field w-full rounded-xl px-4 py-2.5 text-sm mt-2.5 hidden"
+             placeholder="自己填一种，比如：吉卜力风 / 油画 / 像素风..." />
+    </div>
+
+    <!-- 字体风格 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">书 名 字 体 风 格</label>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5" id="fontGrid"></div>
+      <input id="fontCustom" type="text" maxlength="30"
+             class="field w-full rounded-xl px-4 py-2.5 text-sm mt-2.5 hidden"
+             placeholder="自己填一种字体气质，比如：科技未来感 / 童趣手绘 / 复古印章..." />
+    </div>
+
+    <!-- 比例 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">封 面 比 例</label>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2.5" id="ratioGrid"></div>
+    </div>
+
+    <!-- 个性需求（选填） -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-2 block tracking-wider">特 别 要 求（选填）</label>
+      <textarea id="extraReq" rows="2" maxlength="200"
+                class="field w-full rounded-xl px-4 py-3 text-sm"
+                placeholder="例如：主角是穿白衣的少年、画面要有月亮、不要血腥"></textarea>
+    </div>
+
+    <!-- 一次出几张 -->
+    <div>
+      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">一 次 出 几 张</label>
+      <div class="grid grid-cols-3 gap-2.5" id="countGrid"></div>
+      <p class="text-xs text-paper/40 mt-2 leading-relaxed">
+        <i class="fa fa-info-circle text-gold-500/60 mr-1"></i>
+        多出几张挑一张更稳；张数越多等待越久，消耗也越多
+      </p>
+    </div>
+
+    <div class="flex gap-3 pt-1">
+      <button onclick="goStep(1)" class="chip rounded-xl py-3 px-5 text-sm">
+        <i class="fa fa-angle-left mr-1"></i> 上一步
+      </button>
+      <button id="generateBtn" onclick="generateCover()"
+              class="btn-primary flex-1 rounded-xl py-3.5 text-base">
+        <i class="fa fa-magic mr-2"></i>开画
+      </button>
+    </div>
+  </section>
+
+  <!-- ═════════════ 步骤 3：结果 + 改图对话 ═════════════ -->
+  <section id="step3" class="step hidden">
+
+    <!-- 加载态 -->
+    <div id="loadingBox" class="glass rounded-3xl p-10 flex flex-col items-center text-center hidden">
+      <div class="loading-orb mb-5"></div>
+      <h3 class="font-serif text-lg text-gold-400 mb-2">正在为你的故事点亮一盏灯</h3>
+      <p id="loadingHint" class="text-sm text-paper/60">
+        大概 1-3 分钟。这段时间，正好可以构思下一章
+      </p>
+      <div class="divider-deco mt-6 w-full">
+        <span class="text-xs font-deco tracking-widest">PLEASE WAIT</span>
+      </div>
+    </div>
+
+    <!-- 结果展示 -->
+    <div id="resultBox" class="space-y-5 hidden">
+      <!-- 封面图 -->
+      <div class="cover-frame mx-auto md:max-w-md" id="coverFrame">
+        <img id="coverImg" alt="封面" class="block w-full" />
+      </div>
+
+      <!-- 候选缩略图（仅出多张时显示） -->
+      <div id="candidatesBox" class="hidden">
+        <div class="text-xs text-gold-400/70 mb-2 tracking-wider flex items-center gap-2">
+          <i class="fa fa-th text-gold-500/70"></i>
+          <span>这次给你画了几张，挑一张你最想要的</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2" id="candidatesGrid"></div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex gap-3">
+        <a id="downloadBtn" download="cover.png"
+           class="chip rounded-xl py-3 px-4 text-sm flex-1 text-center">
+          <i class="fa fa-download mr-1.5"></i>保存
+        </a>
+        <button onclick="restart()"
+                class="chip rounded-xl py-3 px-4 text-sm flex-1">
+          <i class="fa fa-refresh mr-1.5"></i>再画一张
+        </button>
+      </div>
+
+      <!-- 对话改图 -->
+      <div class="glass rounded-3xl p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <i class="fa fa-comments-o text-gold-500"></i>
+          <h3 class="font-serif text-base text-paper">想改点什么？告诉我</h3>
+        </div>
+
+        <div id="chatHistory" class="space-y-3 max-h-64 overflow-y-auto scroll-hide"></div>
+
+        <div class="flex gap-2">
+          <input id="editInput" type="text" maxlength="200"
+                 class="field flex-1 rounded-xl px-4 py-3 text-sm"
+                 placeholder="例如：把主角换成女生 / 背景改成雪山" />
+          <button id="editBtn" onclick="editCover()" class="btn-primary rounded-xl px-5 text-sm">
+            <i class="fa fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误态 -->
+    <div id="errorBox" class="glass rounded-3xl p-8 text-center hidden">
+      <i class="fa fa-exclamation-circle text-5xl text-rose-300 mb-4"></i>
+      <h3 class="font-serif text-lg text-paper mb-2">画到一半卡住了</h3>
+      <p id="errorMsg" class="text-sm text-paper/70 mb-3"></p>
+      <details id="errorRaw" class="text-xs text-paper/40 mb-5 hidden">
+        <summary class="cursor-pointer hover:text-paper/60">展开看技术细节</summary>
+        <p id="errorRawMsg" class="mt-2 text-left bg-night-900/60 rounded-lg p-3 break-all"></p>
+      </details>
+      <p class="text-xs text-paper/40 mb-5">你填的资料都还在，回去随时再试</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button onclick="retrySamePayload()" class="btn-primary rounded-xl py-3 px-6 text-sm">
+          <i class="fa fa-refresh mr-1.5"></i>原样再来一次
+        </button>
+        <button onclick="retryWithAutoStyle()" class="chip rounded-xl py-3 px-6 text-sm">
+          <i class="fa fa-magic mr-1.5"></i>让 AI 换种画风再试
+        </button>
+        <button onclick="goStep(2)" class="chip rounded-xl py-3 px-6 text-sm">
+          <i class="fa fa-angle-left mr-1.5"></i>返回修改
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部署名 -->
+  <footer class="text-center mt-10">
+    <div class="divider-deco">
+      <span class="text-xs font-deco tracking-widest">FIN</span>
+    </div>
+    <p class="text-[10px] text-paper/30 mt-4 tracking-widest">每一本书，都值得一个像样的开始</p>
+  </footer>
+
+</main>
+
+<script>
+// ════════════════════════ 全局兜底 ════════════════════════
+window.addEventListener('unhandledrejection', e => {
+  console.error('[unhandledrejection]', e.reason);
+  toast('网络好像不太稳，再试一次');
+});
+window.addEventListener('error', e => {
+  console.error('[error]', e.message);
+});
+
+// ════════════════════════ 数据 ════════════════════════
+const GENRES = [
+  { id: '__auto__',    name: 'AI 自决', icon: 'fa-magic' },
+  { id: 'xianxia',     name: '古风仙侠', icon: 'fa-moon-o' },
+  { id: 'oriental',    name: '东方玄幻', icon: 'fa-fire' },
+  { id: 'western',     name: '西方魔幻', icon: 'fa-magic' },
+  { id: 'urban',       name: '都市言情', icon: 'fa-heart-o' },
+  { id: 'scifi',       name: '科幻未来', icon: 'fa-rocket' },
+  { id: 'mystery',     name: '悬疑惊悚', icon: 'fa-eye' },
+  { id: 'history',     name: '历史权谋', icon: 'fa-flag' },
+  { id: 'apocalypse',  name: '末世废土', icon: 'fa-warning' },
+  { id: 'wuxia',       name: '武侠江湖', icon: 'fa-leaf' },
+  { id: 'esports',     name: '游戏电竞', icon: 'fa-gamepad' },
+  { id: 'campus',      name: '校园青春', icon: 'fa-graduation-cap' },
+  { id: '__custom__',  name: '自己填',  icon: 'fa-pencil' },
+];
+
+const STYLES = [
+  { id: '__auto__',    name: 'AI 自决',   desc: '让 AI 替你选' },
+  { id: 'cinematic',   name: '电影写实',  desc: 'CG电影质感' },
+  { id: 'illust',      name: 'CG插画',    desc: '主流网文常用' },
+  { id: 'guofeng_da',  name: '国风大气',  desc: '中国风·磅礴' },
+  { id: 'guofeng_xi',  name: '国风细腻',  desc: '中国风·工笔' },
+  { id: 'anime',       name: '二次元日漫', desc: '日系动画风' },
+  { id: 'ink',         name: '水墨工笔',   desc: '中国画意' },
+  { id: 'dark',        name: '暗黑哥特',   desc: '冷峻神秘' },
+  { id: 'watercolor',  name: '水彩清新',   desc: '柔软治愈' },
+  { id: '__custom__',  name: '自己填',     desc: '画风不在上面' },
+];
+
+const FONTS = [
+  { id: '__auto__',  name: 'AI 自决',  desc: '让 AI 替你选' },
+  { id: 'maobi',     name: '毛笔书法', desc: '仙侠/武侠/古风' },
+  { id: 'kaishu',    name: '楷书古典', desc: '言情/历史' },
+  { id: 'songti',    name: '宋体雅致', desc: '都市/文艺' },
+  { id: 'heiti',     name: '黑体硬朗', desc: '都市/悬疑/科幻' },
+  { id: 'zhuanshu',  name: '篆书古韵', desc: '上古/玄幻' },
+  { id: 'shouxie',   name: '手写温情', desc: '青春/校园' },
+  { id: 'wuxia_jin', name: '武侠刚劲', desc: '武侠/热血' },
+  { id: 'magic_deco',name: '奇幻装饰', desc: '西幻/魔法' },
+  { id: '__custom__',name: '自己填',   desc: '字体不在上面' },
+];
+
+const RATIOS = [
+  { id: '3:4',  name: '竖版',     size: '1024x1536', hint: '3:4 · 1024×1536 · 常规小说' },
+  { id: '2:3',  name: '修长',     size: '1024x1536', hint: '2:3 · 1024×1536 · 精品长版' },
+  { id: '9:16', name: '手机壁纸', size: '2160x3840', hint: '9:16 · 2160×3840 · 竖屏全屏' },
+  { id: '1:1',  name: '方形',     size: '1024x1024', hint: '1:1 · 1024×1024 · 社交分享' },
+  { id: '4:3',  name: '横版',     size: '1536x1024', hint: '4:3 · 1536×1024 · 横屏展示' },
+  { id: '16:9', name: '宽屏',     size: '3840x2160', hint: '16:9 · 3840×2160 · 电影感' },
+];
+
+const COUNTS = [
+  { id: 1, name: '1 张',  hint: '最快' },
+  { id: 2, name: '2 张',  hint: '挑一张' },
+  { id: 4, name: '4 张',  hint: '横挑竖选' },
+];
+
+// 灵感模板：让冷启动用户 3 秒看到效果
+const TEMPLATES = [
+  {
+    label: '仙侠 · 御剑',
+    title: '剑落星河',
+    author: '观山海',
+    intro: '少年自昆仑山下走出，怀里揣着一截断剑、一封死誓。十年江湖，他要让那个把师父钉在道碑上的人，亲眼看天倾。',
+    genre: 'xianxia', style: 'guofeng_da', font: 'maobi', ratio: '3:4',
+  },
+  {
+    label: '都市 · 心动',
+    title: '我的城市恰好下雨',
+    author: '糖一颗',
+    intro: '她是写字楼里最普通的设计师，他是楼下咖啡馆每天点同一杯黑咖的男人。一场暴雨之后，故事开始走偏。',
+    genre: 'urban', style: 'watercolor', font: 'songti', ratio: '3:4',
+  },
+  {
+    label: '末世 · 求生',
+    title: '荒原回声',
+    author: '九月寒',
+    intro: '辐射尘落下第七年，地图上再没有"安全区"这个词。一个戴防毒面具的少女，背着一台还能响的旧收音机，向南走。',
+    genre: 'apocalypse', style: 'cinematic', font: 'heiti', ratio: '3:4',
+  },
+  {
+    label: '玄幻 · 上古',
+    title: '九幽烬',
+    author: '青衿',
+    intro: '太古末年，妖神同陨。万年后，一个少年从灰烬里爬出来，不记得名字，只记得要去东海找一个人，把欠她的命还掉。',
+    genre: 'oriental', style: 'guofeng_xi', font: 'zhuanshu', ratio: '3:4',
+  },
+  {
+    label: '校园 · 青春',
+    title: '夏天的第十次回放',
+    author: '柠七',
+    intro: '高三最后一个夏天，她偷偷把同桌名字写进了志愿表。三年后他们在同一座城市的地铁站重逢，她笑着说：好巧。',
+    genre: 'campus', style: 'illust', font: 'shouxie', ratio: '3:4',
+  },
+];
+
+// ════════════════════════ 状态 ════════════════════════
+const state = {
+  step: 1,
+  genre: '__auto__',
+  style: '__auto__',
+  font:  '__auto__',
+  ratio: '3:4',
+  count: 2,
+  chapters: [],   // {name, content}
+  lastImageBase64: null,
+  lastPayload: null,
+  history: [],
+};
+
+// ════════════════════════ 工具：建星空 / 流萤 ════════════════════════
+function buildStars() {
+  const box = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top  = Math.random() * 100 + '%';
+    s.style.setProperty('--d', (2 + Math.random() * 4) + 's');
+    s.style.animationDelay = Math.random() * 4 + 's';
+    box.appendChild(s);
+  }
+}
+function buildFireflies() {
+  const box = document.getElementById('fireflies');
+  for (let i = 0; i < 18; i++) {
+    const f = document.createElement('div');
+    f.className = 'firefly';
+    f.style.left = Math.random() * 100 + '%';
+    f.style.top  = (40 + Math.random() * 60) + '%';
+    f.style.setProperty('--dx', (Math.random() * 100 - 50) + 'px');
+    f.style.setProperty('--dy', -(60 + Math.random() * 80) + 'px');
+    f.style.setProperty('--dur', (12 + Math.random() * 14) + 's');
+    f.style.animationDelay = Math.random() * 8 + 's';
+    box.appendChild(f);
+  }
+}
+
+// ════════════════════════ 灵感模板 ════════════════════════
+function renderTemplates() {
+  const box = document.getElementById('templateRow');
+  if (!box) return;
+  box.innerHTML = '';
+  TEMPLATES.forEach((tpl, i) => {
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'chip rounded-full px-3.5 py-1.5 text-xs cursor-pointer';
+    c.innerHTML = `<i class="fa fa-bolt text-gold-500/80 mr-1"></i>${tpl.label}`;
+    c.onclick = () => applyTemplate(i);
+    box.appendChild(c);
+  });
+}
+
+function applyTemplate(i) {
+  const tpl = TEMPLATES[i];
+  if (!tpl) return;
+  document.getElementById('bookTitle').value = tpl.title;
+  document.getElementById('authorName').value = tpl.author;
+  const intro = document.getElementById('bookIntro');
+  intro.value = tpl.intro;
+  document.getElementById('introCount').textContent = tpl.intro.length;
+  state.genre = tpl.genre;
+  state.style = tpl.style;
+  state.font  = tpl.font;
+  state.ratio = tpl.ratio;
+  renderChips('genreGrid', GENRES, 'genre', false);
+  renderChips('styleGrid', STYLES, 'style', true);
+  renderChips('fontGrid',  FONTS,  'font',  true);
+  renderChips('ratioGrid', RATIOS, 'ratio', true);
+  toast(`已套用「${tpl.label}」，下一步直接开画`);
+}
+
+// ════════════════════════ 渲染选项 ════════════════════════
+function renderChips(boxId, items, key, twoLine = false) {
+  const box = document.getElementById(boxId);
+  box.innerHTML = '';
+  items.forEach(it => {
+    const c = document.createElement('div');
+    c.className = 'chip rounded-xl px-2 py-3 text-center text-xs cursor-pointer';
+    if (state[key] === it.id) c.classList.add('active');
+    if (twoLine) {
+      c.innerHTML = `<div class="font-medium">${it.name}</div><div class="text-[10px] mt-0.5 opacity-60">${it.desc || it.hint || ''}</div>`;
+    } else {
+      c.innerHTML = `<i class="fa ${it.icon} block mb-1 text-base text-gold-500"></i><div>${it.name}</div>`;
+    }
+    c.onclick = () => {
+      state[key] = it.id;
+      renderChips(boxId, items, key, twoLine);
+      // 联动显示自定义输入框
+      const customInputMap = { genre: 'genreCustom', style: 'styleCustom', font: 'fontCustom' };
+      const inputId = customInputMap[key];
+      if (inputId) {
+        const inp = document.getElementById(inputId);
+        inp.classList.toggle('hidden', it.id !== '__custom__');
+        if (it.id === '__custom__') setTimeout(() => inp.focus(), 50);
+      }
+    };
+    box.appendChild(c);
+  });
+}
+
+// ════════════════════════ 步骤切换 ════════════════════════
+function goStep(n) {
+  if (n === 2) {
+    // 校验
+    const t = document.getElementById('bookTitle').value.trim();
+    const a = document.getElementById('authorName').value.trim();
+    const i = document.getElementById('bookIntro').value.trim();
+    if (!t)  return shake('bookTitle',  '请填写书名');
+    if (!a)  return shake('authorName', '请填写作者名');
+    if (!i)  return shake('bookIntro',  '请填写小说简介');
+  }
+  state.step = n;
+  document.querySelectorAll('.step').forEach((el, idx) => {
+    el.classList.toggle('hidden', idx + 1 !== n);
+  });
+  document.querySelectorAll('#stepDots .step-dot').forEach((d, idx) => {
+    d.classList.toggle('active', idx + 1 === n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function shake(id, msg) {
+  const el = document.getElementById(id);
+  el.focus();
+  el.style.borderColor = '#f87171';
+  setTimeout(() => el.style.borderColor = '', 1500);
+  toast(msg);
+}
+
+// 简易提示
+function toast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 glass rounded-xl px-5 py-3 text-sm text-paper';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
+}
+
+// ════════════════════════ 章节文件处理 ════════════════════════
+document.getElementById('chapterFiles').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files).slice(0, 10);
+  state.chapters = [];
+  for (const f of files) {
+    const text = await f.text();
+    state.chapters.push({ name: f.name, content: text.slice(0, 8000) });  // 单章限 8k 字
+  }
+  renderChapterList();
+});
+function renderChapterList() {
+  const box = document.getElementById('chapterList');
+  box.innerHTML = '';
+  state.chapters.forEach((c, idx) => {
+    const chip = document.createElement('span');
+    chip.className = 'file-chip';
+    chip.innerHTML = `<i class="fa fa-file-text-o"></i>${escapeHtml(c.name)} <i class="fa fa-times-circle cursor-pointer ml-1" onclick="removeChapter(${idx})"></i>`;
+    box.appendChild(chip);
+  });
+}
+function removeChapter(i) { state.chapters.splice(i, 1); renderChapterList(); }
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// 字数统计
+document.getElementById('bookIntro').addEventListener('input', e => {
+  document.getElementById('introCount').textContent = e.target.value.length;
+});
+
+// ════════════════════════ 调用后端：首次生成 ════════════════════════
+async function generateCover() {
+  const customGenre = document.getElementById('genreCustom').value.trim();
+  const customStyle = document.getElementById('styleCustom').value.trim();
+  const customFont  = document.getElementById('fontCustom').value.trim();
+  if (state.genre === '__custom__' && !customGenre) return shake('genreCustom', '题材自定义不能为空');
+  if (state.style === '__custom__' && !customStyle) return shake('styleCustom', '画风自定义不能为空');
+  if (state.font  === '__custom__' && !customFont)  return shake('fontCustom',  '字体自定义不能为空');
+
+  const payload = {
+    title:   document.getElementById('bookTitle').value.trim(),
+    author:  document.getElementById('authorName').value.trim(),
+    intro:   document.getElementById('bookIntro').value.trim(),
+    extra:   document.getElementById('extraReq').value.trim(),
+    genre:   state.genre === '__custom__' ? customGenre : state.genre,
+    style:   state.style === '__custom__' ? customStyle : state.style,
+    font:    state.font  === '__custom__' ? customFont  : state.font,
+    ratio:   state.ratio,
+    size:    RATIOS.find(r => r.id === state.ratio).size,
+    n:       state.count,
+    chapters: state.chapters,
+  };
+
+  state.lastPayload = payload;
+
+  goStep(3);
+  await callGenerate(payload);
+}
+
+async function callGenerate(payload) {
+  showLoading();
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw Object.assign(new Error(data.error || '生成失败'), { raw: data.raw });
+    const candidates = data.images && data.images.length ? data.images : (data.image ? [data.image] : []);
+    if (!candidates.length) throw new Error('AI 没返回任何图');
+    showResult(candidates[0], payload, candidates);
+    state.history = [{ role: 'system', text: '初次生成完成' }];
+    renderChat();
+  } catch (e) {
+    showError(e.message, e.raw);
+  }
+}
+
+function retrySamePayload() {
+  if (!state.lastPayload) return goStep(2);
+  callGenerate(state.lastPayload);
+}
+
+function retryWithAutoStyle() {
+  if (!state.lastPayload) return goStep(2);
+  callGenerate({ ...state.lastPayload, style: '__auto__' });
+}
+
+// ════════════════════════ 调用后端：对话改图 ════════════════════════
+async function editCover() {
+  const input = document.getElementById('editInput');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!state.lastImageBase64) return toast('还没生成第一张');
+
+  state.history.push({ role: 'user', text });
+  renderChat();
+  input.value = '';
+  document.getElementById('editBtn').disabled = true;
+
+  // 把当前结果展示区切回 loading
+  document.getElementById('resultBox').classList.add('opacity-50');
+
+  try {
+    const res = await fetch('/api/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        instruction: text,
+        imageBase64: state.lastImageBase64,
+        title:       document.getElementById('bookTitle').value.trim(),
+        author:      document.getElementById('authorName').value.trim(),
+        intro:       document.getElementById('bookIntro').value.trim(),
+        size:        RATIOS.find(r => r.id === state.ratio).size,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '改图失败');
+    showResult(data.image, null);
+    state.history.push({ role: 'ai', text: '改好了，看看这版' });
+    renderChat();
+  } catch (e) {
+    state.history.push({ role: 'ai', text: '改图失败：' + e.message });
+    renderChat();
+  } finally {
+    document.getElementById('editBtn').disabled = false;
+    document.getElementById('resultBox').classList.remove('opacity-50');
+  }
+}
+
+function renderChat() {
+  const box = document.getElementById('chatHistory');
+  box.innerHTML = '';
+  state.history.forEach(m => {
+    if (m.role === 'system') return;
+    const b = document.createElement('div');
+    b.className = m.role === 'user'
+      ? 'bubble-user rounded-2xl px-3.5 py-2 text-sm max-w-[85%] ml-auto'
+      : 'bubble-ai rounded-2xl px-3.5 py-2 text-sm max-w-[85%]';
+    b.textContent = m.text;
+    box.appendChild(b);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function showLoading() {
+  document.getElementById('loadingBox').classList.remove('hidden');
+  document.getElementById('resultBox').classList.add('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+}
+function showResult(b64, payload, candidates) {
+  state.lastImageBase64 = b64;
+  document.getElementById('loadingBox').classList.add('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('resultBox').classList.remove('hidden');
+  const img = document.getElementById('coverImg');
+  img.src = `data:image/png;base64,${b64}`;
+  const dl = document.getElementById('downloadBtn');
+  dl.href = img.src;
+  if (payload) dl.download = `${payload.title}-封面.png`;
+
+  const candBox = document.getElementById('candidatesBox');
+  const candGrid = document.getElementById('candidatesGrid');
+  if (candidates && candidates.length > 1) {
+    candBox.classList.remove('hidden');
+    candGrid.innerHTML = '';
+    candidates.forEach((c, idx) => {
+      const t = document.createElement('div');
+      t.className = 'thumb' + (c === b64 ? ' active' : '');
+      t.innerHTML = `<img alt="候选 ${idx + 1}" src="data:image/png;base64,${c}" />`;
+      t.onclick = () => pickCandidate(c, payload);
+      candGrid.appendChild(t);
+    });
+  } else {
+    candBox.classList.add('hidden');
+    candGrid.innerHTML = '';
+  }
+}
+
+function pickCandidate(b64, payload) {
+  state.lastImageBase64 = b64;
+  const img = document.getElementById('coverImg');
+  img.src = `data:image/png;base64,${b64}`;
+  const dl = document.getElementById('downloadBtn');
+  dl.href = img.src;
+  if (payload) dl.download = `${payload.title}-封面.png`;
+  document.querySelectorAll('#candidatesGrid .thumb').forEach(el => {
+    const inner = el.querySelector('img');
+    el.classList.toggle('active', inner && inner.src === img.src);
+  });
+}
+function showError(msg, raw) {
+  document.getElementById('loadingBox').classList.add('hidden');
+  document.getElementById('resultBox').classList.add('hidden');
+  document.getElementById('errorBox').classList.remove('hidden');
+  document.getElementById('errorMsg').textContent = msg;
+  const det = document.getElementById('errorRaw');
+  const rawBox = document.getElementById('errorRawMsg');
+  if (raw && raw !== msg) {
+    det.classList.remove('hidden');
+    rawBox.textContent = raw;
+  } else {
+    det.classList.add('hidden');
+    rawBox.textContent = '';
+  }
+}
+function restart() {
+  document.getElementById('coverImg').src = '';
+  state.lastImageBase64 = null;
+  state.history = [];
+  goStep(1);
+}
+
+// ════════════════════════ 启动 ════════════════════════
+buildStars();
+buildFireflies();
+renderTemplates();
+renderChips('genreGrid', GENRES, 'genre', false);
+renderChips('styleGrid', STYLES, 'style', true);
+renderChips('fontGrid',  FONTS,  'font',  true);
+renderChips('ratioGrid', RATIOS, 'ratio', true);
+renderChips('countGrid', COUNTS, 'count', true);
+</script>
+
+</body>
+</html>
