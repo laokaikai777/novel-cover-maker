@@ -125,6 +125,44 @@ function parseClaudeResponse(text) {
 }
 
 // ─────────────────────────────────────
+// 关键词匹配：从简介/书名自动推断题材（纯 JS，不调 AI）
+// ─────────────────────────────────────
+const GENRE_KEYWORDS = {
+  xianxia:    ['修仙', '修真', '仙侠', '飞剑', '道袍', '渡劫', '元婴', '金丹', '仙界', '灵根', '功法', '御剑', '仙门', '练气', '筑基', '长生'],
+  oriental:   ['玄幻', '神魔', '洪荒', '上古', '异兽', '天帝', '神王', '万界', '吞噬', '血脉', '至尊', '诸天'],
+  western:    ['魔法', '龙骑士', '精灵', '矮人', '地下城', '魔兽', '骑士', '巫师', '剑与魔法', '咒语', '巨龙', '魔杖'],
+  urban:      ['都市', '总裁', '商战', '职场', '豪门', '现代都市', '言情', '霸总', '恋爱'],
+  scifi:      ['科幻', '星际', '机甲', '赛博', '太空', '宇宙', '外星', '星舰', 'AI', '人工智能', '虚拟现实'],
+  mystery:    ['悬疑', '推理', '破案', '恐怖', '灵异', '侦探', '凶手', '密室', '鬼', '惊悚'],
+  history:    ['历史', '权谋', '朝堂', '帝王', '宫斗', '皇权', '官场', '王朝', '穿越古代'],
+  apocalypse: ['末世', '丧尸', '废土', '辐射', '末日', '变异', '灾变'],
+  wuxia:      ['武侠', '江湖', '刀剑', '少林', '武当', '门派', '侠客', '武林', '内功', '轻功'],
+  esports:    ['电竞', '战队', '冠军', 'MOBA', 'FPS', '游戏竞技'],
+  campus:     ['校园', '青春', '学院', '学霸', '校花', '同窗', '教室'],
+};
+
+function detectGenre(title, intro) {
+  const text = `${title || ''} ${intro || ''}`;
+  let bestGenre = 'xianxia'; // 默认
+  let bestScore = 0;
+
+  for (const [genre, keywords] of Object.entries(GENRE_KEYWORDS)) {
+    let score = 0;
+    for (const kw of keywords) {
+      if (text.includes(kw)) {
+        score += kw.length >= 3 ? 3 : 1; // 长关键词权重更高
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestGenre = genre;
+    }
+  }
+
+  return bestScore > 0 ? bestGenre : 'xianxia';
+}
+
+// ─────────────────────────────────────
 // 模板直出 image2 prompt（核心改动）
 // ─────────────────────────────────────
 function buildPrompt(input) {
@@ -132,12 +170,15 @@ function buildPrompt(input) {
     ? 'vertical portrait 2:3 aspect ratio'
     : 'vertical portrait 3:4 aspect ratio';
 
+  // 题材：AUTO 时从简介关键词推断
+  const genre = (input.genre && input.genre !== AUTO) ? input.genre : detectGenre(input.title, input.intro);
+
   // 画风：用户选了就用，没选根据题材自动匹配
   let styleText;
   if (input.style && input.style !== AUTO && STYLE_LABEL[input.style]) {
     styleText = STYLE_LABEL[input.style];
   } else {
-    const defaultKey = GENRE_DEFAULT_STYLE[input.genre] || 'illust';
+    const defaultKey = GENRE_DEFAULT_STYLE[genre] || 'illust';
     styleText = STYLE_LABEL[defaultKey];
   }
 
@@ -146,13 +187,13 @@ function buildPrompt(input) {
   if (input.font && input.font !== AUTO && FONT_LABEL[input.font]) {
     fontText = FONT_LABEL[input.font];
   } else {
-    const defaultKey = GENRE_DEFAULT_FONT[input.genre] || 'heiti';
+    const defaultKey = GENRE_DEFAULT_FONT[genre] || 'heiti';
     fontText = FONT_LABEL[defaultKey];
   }
 
   // 题材视觉元素
-  const genreVisual = (input.genre && input.genre !== AUTO && GENRE_VISUALS[input.genre])
-    ? GENRE_VISUALS[input.genre]
+  const genreVisual = (genre && genre !== AUTO && GENRE_VISUALS[genre])
+    ? GENRE_VISUALS[genre]
     : '';
 
   // 章节浓缩结果（可选）
