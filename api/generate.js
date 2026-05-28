@@ -3,21 +3,9 @@
 // Claude 仅用于可选的章节浓缩（失败不阻塞主流程）
 // Vercel Serverless Function
 
-const AUTO = '__auto__';
+const { humanizeError, getConfig, sanitizeTitle } = require('./utils.js');
 
-const GENRE_LABEL = {
-  xianxia: '古风仙侠（修真问道、御剑飞升、上古传说）',
-  oriental: '东方玄幻（异兽神魔、洪荒上古、东方神话）',
-  western: '西方魔幻（魔法学院、巨龙骑士、地下城与精灵）',
-  urban: '都市言情（现代都市、爱情故事、商战职场）',
-  scifi: '科幻未来（星际、机甲、赛博朋克、AI）',
-  mystery: '悬疑惊悚（推理破案、灵异恐怖、心理博弈）',
-  history: '历史权谋（朝堂权斗、帝王将相、宫廷秘史）',
-  apocalypse: '末世废土（丧尸、辐射荒原、生存博弈）',
-  wuxia: '武侠江湖（刀剑如梦、快意恩仇、江湖儿女）',
-  esports: '游戏电竞（电竞比赛、虚拟竞技、热血少年）',
-  campus: '校园青春（学院日常、青春恋爱、热血少年）',
-};
+const AUTO = '__auto__';
 
 const STYLE_LABEL = {
   cinematic:   'cinematic photorealistic CG with dramatic lighting and film-grain depth',
@@ -41,7 +29,6 @@ const FONT_LABEL = {
   magic_deco:  'ornate fantasy decorative typography with magical flourishes, suitable for Western fantasy themes',
 };
 
-// 题材 → 默认视觉元素
 const GENRE_VISUALS = {
   xianxia: 'flowing Daoist robes, flying swords, mystical mountains shrouded in clouds, ancient temples, cranes, spiritual energy trails',
   oriental: 'colossal ancient beasts, primordial ruins, divine palaces, swirling elemental forces, heavenly tribulation lightning',
@@ -56,7 +43,6 @@ const GENRE_VISUALS = {
   campus: 'school courtyards, cherry blossoms, classrooms, youthful uniforms, sports fields at golden hour',
 };
 
-// 题材 → 默认画风
 const GENRE_DEFAULT_STYLE = {
   xianxia: 'guofeng_da', oriental: 'guofeng_da', wuxia: 'guofeng_da',
   history: 'guofeng_xi',
@@ -65,7 +51,6 @@ const GENRE_DEFAULT_STYLE = {
   urban: 'illust', esports: 'anime', campus: 'anime',
 };
 
-// 题材 → 默认字体
 const GENRE_DEFAULT_FONT = {
   xianxia: 'maobi', oriental: 'kaishu', wuxia: 'wuxia_jin',
   history: 'kaishu',
@@ -74,36 +59,82 @@ const GENRE_DEFAULT_FONT = {
   urban: 'heiti', esports: 'heiti', campus: 'shouxie',
 };
 
-// ─────────────────────────────────────
-// 错误翻译
-// ─────────────────────────────────────
-function humanizeError(raw, stage) {
-  const s = String(raw || '').toLowerCase();
-  if (s.includes('no available channel')) return '画师暂时不在线，AI 服务通道还没开通（错误码：CH01）';
-  if (s.includes('rate limit') || s.includes('429') || s.includes('too many')) return '当前排队的人有点多，等 1 分钟再试一次试试';
-  if (s.includes('timeout') || s.includes('etimedout') || s.includes('timed out')) return '等太久没出来——可能是当前画面太复杂，简化一下简介或换个画风再来';
-  if (s.includes('unauthorized') || s.includes('401') || s.includes('invalid api key') || s.includes('invalid token')) return '服务端密钥失效，需要管理员检查一下';
-  if (s.includes('insufficient') || s.includes('quota') || s.includes('balance')) return '今天的额度用完了，明天再来吧';
-  if (s.includes('content policy') || s.includes('safety') || s.includes('moderation')) return '内容触发了安全策略，试着换个表述或调整简介里的敏感内容';
-  if (s.includes('http 5')) return 'AI 服务那边出了点问题，过会儿再试';
-  if (s.includes('http 4')) return '请求被拒绝了，检查一下填的内容是不是太短或有特殊字符';
-  if (stage === 'prompt') return '出图前的准备没做完，可能是网不太稳，再来一次';
-  if (stage === 'image')  return 'AI 这次没画出来，再试一次试试';
-  return raw;
+const GENRE_KEYWORDS = {
+  xianxia:    ['修仙', '修真', '仙侠', '飞剑', '道袍', '渡劫', '元婴', '金丹', '仙界', '灵根', '功法', '御剑', '仙门', '练气', '筑基', '长生'],
+  oriental:   ['玄幻', '神魔', '洪荒', '上古', '异兽', '天帝', '神王', '万界', '吞噬', '血脉', '至尊', '诸天'],
+  western:    ['魔法', '龙骑士', '精灵', '矮人', '地下城', '魔兽', '骑士', '巫师', '剑与魔法', '咒语', '巨龙', '魔杖'],
+  urban:      ['都市', '总裁', '商战', '职场', '豪门', '现代都市', '言情', '霸总', '恋爱'],
+  scifi:      ['科幻', '星际', '机甲', '赛博', '太空', '宇宙', '外星', '星舰', 'AI', '人工智能', '虚拟现实'],
+  mystery:    ['悬疑', '推理', '破案', '恐怖', '灵异', '侦探', '凶手', '密室', '鬼', '惊悚'],
+  history:    ['历史', '权谋', '朝堂', '帝王', '宫斗', '皇权', '官场', '王朝', '穿越古代'],
+  apocalypse: ['末世', '丧尸', '废土', '辐射', '末日', '变异', '灾变'],
+  wuxia:      ['武侠', '江湖', '刀剑', '少林', '武当', '门派', '侠客', '武林', '内功', '轻功'],
+  esports:    ['电竞', '战队', '冠军', 'MOBA', 'FPS', '游戏竞技'],
+  campus:     ['校园', '青春', '学院', '学霸', '校花', '同窗', '教室'],
+};
+
+function resolveGenre(genre, title, intro) {
+  if (genre && genre !== AUTO) return genre;
+  const text = `${title || ''} ${intro || ''}`;
+  let best = 'xianxia';
+  let bestScore = 0;
+  for (const [g, keywords] of Object.entries(GENRE_KEYWORDS)) {
+    let score = 0;
+    for (const kw of keywords) {
+      if (text.includes(kw)) score += kw.length >= 3 ? 3 : 1;
+    }
+    if (score > bestScore) { bestScore = score; best = g; }
+  }
+  return bestScore > 0 ? best : 'xianxia';
+}
+
+function resolveStyle(style, genre) {
+  if (style && style !== AUTO && STYLE_LABEL[style]) return STYLE_LABEL[style];
+  const key = GENRE_DEFAULT_STYLE[genre] || 'illust';
+  return STYLE_LABEL[key];
+}
+
+function resolveFont(font, genre) {
+  if (font && font !== AUTO && FONT_LABEL[font]) return FONT_LABEL[font];
+  const key = GENRE_DEFAULT_FONT[genre] || 'heiti';
+  return FONT_LABEL[key];
+}
+
+function resolveVisuals(genre) {
+  return GENRE_VISUALS[genre] || '';
+}
+
+function buildPrompt(input) {
+  const title = sanitizeTitle(input.title);
+  const author = (input.author || '').trim();
+  const genre = resolveGenre(input.genre, input.title, input.intro);
+  const styleText = resolveStyle(input.style, genre);
+  const fontText = resolveFont(input.font, genre);
+  const genreVisual = resolveVisuals(genre);
+  const chapterSummary = input.chapterSummary || '';
+  const extra = input.extra ? `Additional requirements: ${input.extra}.` : '';
+  const ratioDesc = input.ratio === '2:3'
+    ? 'vertical portrait 2:3 aspect ratio'
+    : 'vertical portrait 3:4 aspect ratio';
+
+  return `Create a professional book cover illustration, ${ratioDesc}.
+
+Book title: "${title}" by ${author}.
+Genre and synopsis: ${input.intro}
+
+Style: ${styleText}.
+${genreVisual ? `Key visual elements: ${genreVisual}.` : ''}
+Typography: ${fontText}. Place the book title "${title}" prominently in the top 25% area with large, eye-catching typography matching the font style. Place the author name "${author}" at the bottom 10% in smaller text.
+
+The main character should have East Asian features, wearing attire appropriate to the genre.
+${chapterSummary ? `Mood and atmosphere: ${chapterSummary}` : ''}
+${extra}
+
+Composition: Vertical portrait book cover layout — title at top, main illustration scene in center, author name at bottom. Masterpiece quality, ultra detailed, professional book cover design.`.trim();
 }
 
 // ─────────────────────────────────────
-// 读环境变量
-// ─────────────────────────────────────
-function getConfig() {
-  const baseUrl = (process.env.ANTHROPIC_BASE_URL || '').replace(/\/$/, '');
-  const token = process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!baseUrl || !token) throw new Error('服务器未配置 API：缺少 ANTHROPIC_BASE_URL 或 ANTHROPIC_AUTH_TOKEN');
-  return { baseUrl, token };
-}
-
-// ─────────────────────────────────────
-// 解析 Claude 响应（仅章节浓缩用）
+// 可选：调 Claude 做章节轻量浓缩（失败不阻塞）
 // ─────────────────────────────────────
 function parseClaudeResponse(text) {
   try {
@@ -124,139 +155,27 @@ function parseClaudeResponse(text) {
   return content.trim();
 }
 
-// ─────────────────────────────────────
-// 关键词匹配：从简介/书名自动推断题材（纯 JS，不调 AI）
-// ─────────────────────────────────────
-const GENRE_KEYWORDS = {
-  xianxia:    ['修仙', '修真', '仙侠', '飞剑', '道袍', '渡劫', '元婴', '金丹', '仙界', '灵根', '功法', '御剑', '仙门', '练气', '筑基', '长生'],
-  oriental:   ['玄幻', '神魔', '洪荒', '上古', '异兽', '天帝', '神王', '万界', '吞噬', '血脉', '至尊', '诸天'],
-  western:    ['魔法', '龙骑士', '精灵', '矮人', '地下城', '魔兽', '骑士', '巫师', '剑与魔法', '咒语', '巨龙', '魔杖'],
-  urban:      ['都市', '总裁', '商战', '职场', '豪门', '现代都市', '言情', '霸总', '恋爱'],
-  scifi:      ['科幻', '星际', '机甲', '赛博', '太空', '宇宙', '外星', '星舰', 'AI', '人工智能', '虚拟现实'],
-  mystery:    ['悬疑', '推理', '破案', '恐怖', '灵异', '侦探', '凶手', '密室', '鬼', '惊悚'],
-  history:    ['历史', '权谋', '朝堂', '帝王', '宫斗', '皇权', '官场', '王朝', '穿越古代'],
-  apocalypse: ['末世', '丧尸', '废土', '辐射', '末日', '变异', '灾变'],
-  wuxia:      ['武侠', '江湖', '刀剑', '少林', '武当', '门派', '侠客', '武林', '内功', '轻功'],
-  esports:    ['电竞', '战队', '冠军', 'MOBA', 'FPS', '游戏竞技'],
-  campus:     ['校园', '青春', '学院', '学霸', '校花', '同窗', '教室'],
-};
-
-function detectGenre(title, intro) {
-  const text = `${title || ''} ${intro || ''}`;
-  let bestGenre = 'xianxia'; // 默认
-  let bestScore = 0;
-
-  for (const [genre, keywords] of Object.entries(GENRE_KEYWORDS)) {
-    let score = 0;
-    for (const kw of keywords) {
-      if (text.includes(kw)) {
-        score += kw.length >= 3 ? 3 : 1; // 长关键词权重更高
-      }
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestGenre = genre;
-    }
-  }
-
-  return bestScore > 0 ? bestGenre : 'xianxia';
-}
-
-// ─────────────────────────────────────
-// 模板直出 image2 prompt（核心改动）
-// ─────────────────────────────────────
-function buildPrompt(input) {
-  const ratioDesc = input.ratio === '2:3'
-    ? 'vertical portrait 2:3 aspect ratio'
-    : 'vertical portrait 3:4 aspect ratio';
-
-  // 清理书名：去掉《》书名号和多余空格，避免 image2 把标点画上去
-  const title = (input.title || '').replace(/[《》〈〉「」『』""'']/g, '').trim();
-  const author = (input.author || '').trim();
-
-  // 题材：AUTO 时从简介关键词推断
-  const genre = (input.genre && input.genre !== AUTO) ? input.genre : detectGenre(input.title, input.intro);
-
-  // 画风：用户选了就用，没选根据题材自动匹配
-  let styleText;
-  if (input.style && input.style !== AUTO && STYLE_LABEL[input.style]) {
-    styleText = STYLE_LABEL[input.style];
-  } else {
-    const defaultKey = GENRE_DEFAULT_STYLE[genre] || 'illust';
-    styleText = STYLE_LABEL[defaultKey];
-  }
-
-  // 字体：同上
-  let fontText;
-  if (input.font && input.font !== AUTO && FONT_LABEL[input.font]) {
-    fontText = FONT_LABEL[input.font];
-  } else {
-    const defaultKey = GENRE_DEFAULT_FONT[genre] || 'heiti';
-    fontText = FONT_LABEL[defaultKey];
-  }
-
-  // 题材视觉元素
-  const genreVisual = (genre && genre !== AUTO && GENRE_VISUALS[genre])
-    ? GENRE_VISUALS[genre]
-    : '';
-
-  // 章节浓缩结果（可选）
-  const chapterSummary = input.chapterSummary || '';
-
-  // 特别要求
-  const extra = input.extra ? `Additional requirements: ${input.extra}.` : '';
-
-  const prompt = `Create a professional book cover illustration, ${ratioDesc}.
-
-Book title: "${title}" by ${author}.
-Genre and synopsis: ${input.intro}
-
-Style: ${styleText}.
-${genreVisual ? `Key visual elements: ${genreVisual}.` : ''}
-Typography: ${fontText}. Place the book title "${title}" prominently in the top 25% area with large, eye-catching typography matching the font style. Place the author name "${author}" at the bottom 10% in smaller text.
-
-The main character should have East Asian features, wearing attire appropriate to the genre.
-${chapterSummary ? `Mood and atmosphere: ${chapterSummary}` : ''}
-${extra}
-
-Composition: Vertical portrait book cover layout — title at top, main illustration scene in center, author name at bottom. Masterpiece quality, ultra detailed, professional book cover design.`;
-
-  return prompt.trim();
-}
-
-// ─────────────────────────────────────
-// 可选：调 Claude 做章节轻量浓缩
-// 失败返回空字符串，不阻塞主流程
-// ─────────────────────────────────────
 async function summarizeChapters(input) {
-  const chapterText = (input.chapters || [])
+  const snippets = (input.chapters || [])
     .slice(0, 3)
-    .map((c, i) => `Ch${i + 1}: ${(c.content || '').slice(0, 500)}`)
+    .map((c, i) => `Ch${i + 1}: ${(c.content || '').slice(0, 100)}`)
     .join(' ');
 
-  if (!chapterText.trim()) return '';
+  if (!snippets.trim()) return '';
 
   const { baseUrl, token } = getConfig();
-
-  // 极短 prompt，控制在 relay 限制内（全英文，~150 字符）
-  const userPrompt = `Describe this web novel's atmosphere in 40 English words for a book cover artist. Title: ${input.title}. Excerpts: ${chapterText.slice(0, 200)}`;
+  const userPrompt = `Describe this web novel's atmosphere in 40 English words for a book cover artist. Title: ${sanitizeTitle(input.title)}. Excerpts: ${snippets}`;
 
   try {
-    const url = `${baseUrl}/v1/chat/completions`;
-    const body = {
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 120,
-      stream: false,
-      messages: [{ role: 'user', content: userPrompt }],
-    };
-
-    const res = await fetch(url, {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 120,
+        stream: false,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
     });
 
     if (!res.ok) return '';
@@ -274,27 +193,21 @@ async function summarizeChapters(input) {
 // ─────────────────────────────────────
 async function callImage2(prompt, size, n) {
   const { baseUrl, token } = getConfig();
-  const url = `${baseUrl}/v1/images/generations`;
 
   const count = Math.max(1, Math.min(4, parseInt(n, 10) || 1));
 
-  const payload = {
-    model: 'gpt-image-2',
-    prompt,
-    response_format: 'b64_json',
-    n: count,
-    size: size || '1024x1536',
-    quality: 'medium',
-    output_format: 'png',
-  };
-
-  const res = await fetch(url, {
+  const res = await fetch(`${baseUrl}/v1/images/generations`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({
+      model: 'gpt-image-2',
+      prompt,
+      response_format: 'b64_json',
+      n: count,
+      size: size || '1024x1536',
+      quality: 'medium',
+      output_format: 'png',
+    }),
   });
 
   if (!res.ok) {
@@ -343,20 +256,26 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, error: '书名、作者、简介都必填' });
     }
 
-    // 可选：章节浓缩（失败不阻塞，返回空字符串）
-    let chapterSummary = '';
-    if (input.chapters && input.chapters.length > 0) {
-      chapterSummary = await summarizeChapters(input);
-    }
+    // 章节浓缩与 prompt 构建并行（互不依赖）
+    const chapterPromise = (input.chapters && input.chapters.length > 0)
+      ? summarizeChapters(input)
+      : Promise.resolve('');
 
-    const prompt = buildPrompt({ ...input, chapterSummary });
-    const images = await callImage2(prompt, input.size, input.n);
+    const prompt = buildPrompt(input);
+    const chapterSummary = await chapterPromise;
+
+    // 如果有章节摘要，追加到 prompt
+    const finalPrompt = chapterSummary
+      ? prompt.replace('Mood and atmosphere: \n', `Mood and atmosphere: ${chapterSummary}\n`)
+      : prompt;
+
+    const images = await callImage2(finalPrompt, input.size, input.n);
 
     return res.status(200).json({
       ok: true,
       images,
       image: images[0],
-      prompt,
+      prompt: finalPrompt,
     });
   } catch (e) {
     const raw = e.message || String(e);

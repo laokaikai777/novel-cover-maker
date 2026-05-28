@@ -2,35 +2,10 @@
 // 对话改图：用户自然语言修改要求 → 模板直出 edit prompt → 调 image2 改图
 // Vercel Serverless Function
 
-function humanizeError(raw, stage) {
-  const s = String(raw || '').toLowerCase();
-  if (s.includes('no available channel')) return '画师暂时不在线，AI 服务通道还没开通（错误码：CH01）';
-  if (s.includes('rate limit') || s.includes('429') || s.includes('too many')) return '当前排队的人有点多，等 1 分钟再试';
-  if (s.includes('timeout') || s.includes('etimedout') || s.includes('timed out')) return '等太久没出来，换个简单点的修改要求再试试';
-  if (s.includes('unauthorized') || s.includes('401') || s.includes('invalid api key')) return '服务端密钥失效，需要管理员检查';
-  if (s.includes('insufficient') || s.includes('quota') || s.includes('balance')) return '今天的额度用完了';
-  if (s.includes('content policy') || s.includes('safety') || s.includes('moderation')) return '修改要求触发了安全策略，换个说法试试';
-  if (s.includes('http 5')) return 'AI 服务那边出了点问题，过会儿再试';
-  if (s.includes('http 4')) return '请求被拒绝，检查修改要求是不是太短或有特殊字符';
-  if (stage === 'prompt') return '理解你的修改要求时出了点问题，再说一遍试试';
-  if (stage === 'image')  return '这一版没改成功，再试一次';
-  return raw;
-}
+const { humanizeError, getConfig, sanitizeTitle } = require('./utils.js');
 
-function getConfig() {
-  const baseUrl = (process.env.ANTHROPIC_BASE_URL || '').replace(/\/$/, '');
-  const token = process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!baseUrl || !token) {
-    throw new Error('服务器未配置 API：缺少 ANTHROPIC_BASE_URL 或 ANTHROPIC_AUTH_TOKEN');
-  }
-  return { baseUrl, token };
-}
-
-// ─────────────────────────────────────
-// 模板直出 edit prompt（不再经过 Claude）
-// ─────────────────────────────────────
 function buildEditPrompt(input) {
-  const title = (input.title || '').replace(/[《》〈〉「」『』""'']/g, '').trim();
+  const title = sanitizeTitle(input.title);
   const titlePart = title ? ` for "${title}"` : '';
   const author = (input.author || '').trim();
   const authorPart = author ? ` by ${author}` : '';
@@ -38,10 +13,8 @@ function buildEditPrompt(input) {
   return `Edit this book cover image${titlePart}${authorPart}. Modification request: ${input.instruction}. Apply only the requested changes. Preserve all other visual elements, composition, text placement, and overall style. Keep masterpiece quality, professional book cover design.`.trim();
 }
 
-// 调 image2 改图（multipart 上传 base64 转 buffer）
 async function callImage2Edit(prompt, imageBase64, size) {
   const { baseUrl, token } = getConfig();
-  const url = `${baseUrl}/v1/images/edits`;
 
   const boundary = '----CoverEditBoundary' + Date.now().toString(16);
   const imageBuffer = Buffer.from(imageBase64, 'base64');
@@ -68,7 +41,7 @@ async function callImage2Edit(prompt, imageBase64, size) {
 
   const body = Buffer.concat(parts);
 
-  const res = await fetch(url, {
+  const res = await fetch(`${baseUrl}/v1/images/edits`, {
     method: 'POST',
     headers: {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
