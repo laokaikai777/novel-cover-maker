@@ -49,7 +49,8 @@ function getConfig() {
 async function buildEditPromptWithClaude(input) {
   const { baseUrl, token } = getConfig();
 
-  const systemPrompt = `你是一位资深的中文网文封面策划师，正在指导 gpt-image-2 模型对一张已生成的封面进行修改。
+  const userPrompt = `【系统指令】
+你是一位资深的中文网文封面策划师，正在指导 gpt-image-2 模型对一张已生成的封面进行修改。
 任务：把用户的中文修改要求，翻译成精准、可执行的英文图像编辑指令。
 
 【输出格式严格遵守】
@@ -60,9 +61,10 @@ async function buildEditPromptWithClaude(input) {
 - 如果修改涉及书名、作者名等中文文字，原文用引号照搬
 - 保持封面整体气质（题材氛围、构图比例）不被破坏
 - 措辞要具体：不要"更好看"，要"更暖的金色调、加强月光辉光、放大主角"
-- 包含质量后缀：keep masterpiece quality, professional book cover style`;
+- 包含质量后缀：keep masterpiece quality, professional book cover style
 
-  const userPrompt = `这是一张网文小说封面，书名 "${input.title}"，作者 "${input.author}"。
+【用户信息】
+这是一张网文小说封面，书名 "${input.title}"，作者 "${input.author}"。
 原小说简介：${input.intro || '（用户未提供）'}
 
 用户的修改要求（中文）：
@@ -78,7 +80,6 @@ ${input.instruction}
     max_tokens: 800,
     stream: false,
     messages: [
-      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
   };

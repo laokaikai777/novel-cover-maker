@@ -138,7 +138,8 @@ async function buildPromptWithClaude(input) {
     .map((c, i) => `【第${i + 1}章节选 · ${c.name || ''}】\n${(c.content || '').slice(0, 1500)}`)
     .join('\n\n');
 
-  const systemPrompt = `你是一位资深的中文网文封面策划师，深谙起点、晋江、番茄等平台的封面美学。
+  const userPrompt = `【系统指令】
+你是一位资深的中文网文封面策划师，深谙起点、晋江、番茄等平台的封面美学。
 目标用户群体：中国大陆读者，输出的封面气质要符合中国网文读者审美。
 
 你的任务：把用户提供的小说信息，转化为一段精准、画面感极强的图像生成提示词，用于 gpt-image-2 模型生成中文网文封面。
@@ -172,10 +173,9 @@ async function buildPromptWithClaude(input) {
 - 题材自决 → 从简介和章节里识别小说类型
 - 画风自决 → 配合题材选最合适的画风（仙侠配国风、科幻配 CG、校园配水彩等）
 - 字体自决 → 配合题材选最合适的字体（仙侠配毛笔、都市配宋体、科幻配黑体等）
-然后把你的判断结果落到提示词里，不要在输出中说明"我选了 XX"，直接写到 prompt 中。`;
+然后把你的判断结果落到提示词里，不要在输出中说明"我选了 XX"，直接写到 prompt 中。
 
-  const userPrompt = `请基于以下小说信息，输出一段网文封面的 image2 提示词：
-
+【用户提供的小说信息】
 【书名】${input.title}
 【作者】${input.author}
 【题材】${genre.text}
@@ -196,7 +196,6 @@ ${chapterText ? `【章节节选（仅供你理解故事氛围，不要直接复
     max_tokens: 1500,
     stream: false,
     messages: [
-      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
   };
@@ -217,7 +216,7 @@ ${chapterText ? `【章节节选（仅供你理解故事氛围，不要直接复
 
   const text = await res.text();
   const prompt = parseClaudeResponse(text);
-  if (!prompt) throw new Error(`提示词生成失败: 返回为空 (原始 ${text.length} 字符, 前200字: ${text.slice(0, 200)})`);
+  if (!prompt) throw new Error(`提示词生成失败: 返回为空`);
   return prompt;
 }
 
