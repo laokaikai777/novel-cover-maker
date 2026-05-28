@@ -217,7 +217,7 @@ ${chapterText ? `【章节节选（仅供你理解故事氛围，不要直接复
 
   const text = await res.text();
   const prompt = parseClaudeResponse(text);
-  if (!prompt) throw new Error(`提示词生成失败: 返回为空 (原始 ${text.length} 字符)`);
+  if (!prompt) throw new Error(`提示词生成失败: 返回为空 (原始 ${text.length} 字符, 前200字: ${text.slice(0, 200)})`);
   return prompt;
 }
 
