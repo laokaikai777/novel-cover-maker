@@ -30,10 +30,12 @@ function getConfig() {
 // 模板直出 edit prompt（不再经过 Claude）
 // ─────────────────────────────────────
 function buildEditPrompt(input) {
-  const title = input.title ? ` for "${input.title}"` : '';
-  const author = input.author ? ` by ${input.author}` : '';
+  const title = (input.title || '').replace(/[《》〈〉「」『』""'']/g, '').trim();
+  const titlePart = title ? ` for "${title}"` : '';
+  const author = (input.author || '').trim();
+  const authorPart = author ? ` by ${author}` : '';
 
-  return `Edit this book cover image${title}${author}. Modification request: ${input.instruction}. Apply only the requested changes. Preserve all other visual elements, composition, text placement, and overall style. Keep masterpiece quality, professional book cover design.`.trim();
+  return `Edit this book cover image${titlePart}${authorPart}. Modification request: ${input.instruction}. Apply only the requested changes. Preserve all other visual elements, composition, text placement, and overall style. Keep masterpiece quality, professional book cover design.`.trim();
 }
 
 // 调 image2 改图（multipart 上传 base64 转 buffer）

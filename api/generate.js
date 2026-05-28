@@ -170,6 +170,10 @@ function buildPrompt(input) {
     ? 'vertical portrait 2:3 aspect ratio'
     : 'vertical portrait 3:4 aspect ratio';
 
+  // 清理书名：去掉《》书名号和多余空格，避免 image2 把标点画上去
+  const title = (input.title || '').replace(/[《》〈〉「」『』""'']/g, '').trim();
+  const author = (input.author || '').trim();
+
   // 题材：AUTO 时从简介关键词推断
   const genre = (input.genre && input.genre !== AUTO) ? input.genre : detectGenre(input.title, input.intro);
 
@@ -204,12 +208,12 @@ function buildPrompt(input) {
 
   const prompt = `Create a professional book cover illustration, ${ratioDesc}.
 
-Book title: "${input.title}" by ${input.author}.
+Book title: "${title}" by ${author}.
 Genre and synopsis: ${input.intro}
 
 Style: ${styleText}.
 ${genreVisual ? `Key visual elements: ${genreVisual}.` : ''}
-Typography: ${fontText}. Place the book title "${input.title}" prominently in the top 25% area with large, eye-catching typography matching the font style. Place the author name "${input.author}" at the bottom 10% in smaller text.
+Typography: ${fontText}. Place the book title "${title}" prominently in the top 25% area with large, eye-catching typography matching the font style. Place the author name "${author}" at the bottom 10% in smaller text.
 
 The main character should have East Asian features, wearing attire appropriate to the genre.
 ${chapterSummary ? `Mood and atmosphere: ${chapterSummary}` : ''}
