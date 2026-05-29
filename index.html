@@ -607,12 +607,12 @@ const FONTS = [
 ];
 
 const RATIOS = [
-  { id: '3:4',  name: '竖版',     size: '1024x1536', hint: '3:4 · 1024×1536 · 常规小说' },
-  { id: '2:3',  name: '修长',     size: '1024x1536', hint: '2:3 · 1024×1536 · 精品长版' },
-  { id: '9:16', name: '手机壁纸', size: '2160x3840', hint: '9:16 · 2160×3840 · 竖屏全屏' },
-  { id: '1:1',  name: '方形',     size: '1024x1024', hint: '1:1 · 1024×1024 · 社交分享' },
-  { id: '4:3',  name: '横版',     size: '1536x1024', hint: '4:3 · 1536×1024 · 横屏展示' },
-  { id: '16:9', name: '宽屏',     size: '3840x2160', hint: '16:9 · 3840×2160 · 电影感' },
+  { id: '3:4',  name: '竖版',     hint: '3:4 · 常规小说' },
+  { id: '2:3',  name: '修长',     hint: '2:3 · 精品长版' },
+  { id: '9:16', name: '手机壁纸', hint: '9:16 · 竖屏全屏' },
+  { id: '1:1',  name: '方形',     hint: '1:1 · 社交分享' },
+  { id: '4:3',  name: '横版',     hint: '4:3 · 横屏展示' },
+  { id: '16:9', name: '宽屏',     hint: '16:9 · 电影感' },
 ];
 
 const COUNTS = [
@@ -852,7 +852,7 @@ async function generateCover() {
     style:   state.style === '__custom__' ? customStyle : state.style,
     font:    state.font  === '__custom__' ? customFont  : state.font,
     ratio:   state.ratio,
-    size:    RATIOS.find(r => r.id === state.ratio).size,
+    size:    state.ratio,
     n:       state.count,
     chapters: state.chapters,
   };
@@ -918,7 +918,7 @@ async function editCover() {
         title:       document.getElementById('bookTitle').value.trim(),
         author:      document.getElementById('authorName').value.trim(),
         intro:       document.getElementById('bookIntro').value.trim(),
-        size:        RATIOS.find(r => r.id === state.ratio).size,
+        size:        state.ratio,
       }),
     });
     const data = await res.json();

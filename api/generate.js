@@ -6,6 +6,19 @@
 const { humanizeError, getConfig, sanitizeTitle } = require('./utils.js');
 
 const AUTO = '__auto__';
+const DEFAULT_IMAGE_SIZE = '3:4';
+
+const RATIO_DESCRIPTIONS = {
+  '1:1': 'square 1:1 aspect ratio',
+  '2:3': 'vertical portrait 2:3 aspect ratio',
+  '3:2': 'landscape 3:2 aspect ratio',
+  '3:4': 'vertical portrait 3:4 aspect ratio',
+  '4:3': 'landscape 4:3 aspect ratio',
+  '9:16': 'vertical portrait 9:16 aspect ratio',
+  '16:9': 'wide landscape 16:9 aspect ratio',
+  '9:21': 'ultra-tall vertical 9:21 aspect ratio',
+  '21:9': 'ultra-wide cinematic 21:9 aspect ratio',
+};
 
 const STYLE_LABEL = {
   cinematic:   'cinematic photorealistic CG with dramatic lighting and film-grain depth',
@@ -104,33 +117,41 @@ function resolveVisuals(genre) {
   return GENRE_VISUALS[genre] || '';
 }
 
-function buildPrompt(input) {
-  const title = sanitizeTitle(input.title);
-  const author = (input.author || '').trim();
-  const genre = resolveGenre(input.genre, input.title, input.intro);
-  const styleText = resolveStyle(input.style, genre);
-  const fontText = resolveFont(input.font, genre);
-  const genreVisual = resolveVisuals(genre);
-  const chapterSummary = input.chapterSummary || '';
-  const extra = input.extra ? `Additional requirements: ${input.extra}.` : '';
-  const ratioDesc = input.ratio === '2:3'
-    ? 'vertical portrait 2:3 aspect ratio'
-    : 'vertical portrait 3:4 aspect ratio';
+function resolveRatioDesc(ratio) {
+  return RATIO_DESCRIPTIONS[ratio] || RATIO_DESCRIPTIONS[DEFAULT_IMAGE_SIZE];
+}
+
+function formatAuthorCredit(author) {
+  const name = (author || '').trim();
+  if (!name) return '';
+  return /著$/u.test(name) ? name : `${name} 著`;
+}
+
+function buildPrompt({ title: rawTitle, author, intro, genre, style, font, ratio, extra, chapterSummary }) {
+  const title = sanitizeTitle(rawTitle);
+  const authorCredit = formatAuthorCredit(author);
+  const resolvedGenre = resolveGenre(genre, rawTitle, intro);
+  const styleText = resolveStyle(style, resolvedGenre);
+  const fontText = resolveFont(font, resolvedGenre);
+  const genreVisual = resolveVisuals(resolvedGenre);
+  const mood = chapterSummary || '';
+  const extraLine = extra ? `Additional requirements: ${extra}.` : '';
+  const ratioDesc = resolveRatioDesc(ratio);
 
   return `Create a professional book cover illustration, ${ratioDesc}.
 
-Book title: "${title}" by ${author}.
-Genre and synopsis: ${input.intro}
+Visible cover text: book title "${title}" and author credit "${authorCredit}".
+Genre and synopsis: ${intro}
 
 Style: ${styleText}.
 ${genreVisual ? `Key visual elements: ${genreVisual}.` : ''}
-Typography: ${fontText}. Place the book title "${title}" prominently in the top 25% area with large, eye-catching typography matching the font style. Place the author name "${author}" at the bottom 10% in smaller text.
+Typography: ${fontText}. Place the book title "${title}" prominently with large, eye-catching typography matching the font style. Include the author credit "${authorCredit}" clearly in smaller secondary text, positioned naturally according to the overall composition.
 
 The main character should have East Asian features, wearing attire appropriate to the genre.
-${chapterSummary ? `Mood and atmosphere: ${chapterSummary}` : ''}
-${extra}
+${mood ? `Mood and atmosphere: ${mood}` : ''}
+${extraLine}
 
-Composition: Vertical portrait book cover layout — title at top, main illustration scene in center, author name at bottom. Masterpiece quality, ultra detailed, professional book cover design.`.trim();
+Composition: Professional book cover layout with a strong focal illustration and balanced typography. Masterpiece quality, ultra detailed, professional book cover design.`.trim();
 }
 
 // ─────────────────────────────────────
@@ -195,6 +216,11 @@ async function callImage2(prompt, size, n) {
   const { baseUrl, token } = getConfig();
 
   const count = Math.max(1, Math.min(4, parseInt(n, 10) || 1));
+  const outputSize = size || DEFAULT_IMAGE_SIZE;
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('[image2] request', { size: outputSize, n: count, promptChars: prompt.length });
+  }
 
   const res = await fetch(`${baseUrl}/v1/images/generations`, {
     method: 'POST',
@@ -204,7 +230,7 @@ async function callImage2(prompt, size, n) {
       prompt,
       response_format: 'b64_json',
       n: count,
-      size: size || '1024x1536',
+      size: outputSize,
       quality: 'medium',
       output_format: 'png',
     }),
@@ -212,6 +238,13 @@ async function callImage2(prompt, size, n) {
 
   if (!res.ok) {
     const t = await res.text();
+    console.warn('[image2] failed', {
+      status: res.status,
+      statusText: res.statusText,
+      size: outputSize,
+      n: count,
+      bodyPreview: t.slice(0, 500),
+    });
     let msg = `图像生成失败: HTTP ${res.status}`;
     try {
       const j = JSON.parse(t);
@@ -256,26 +289,28 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, error: '书名、作者、简介都必填' });
     }
 
-    // 章节浓缩与 prompt 构建并行（互不依赖）
-    const chapterPromise = (input.chapters && input.chapters.length > 0)
-      ? summarizeChapters(input)
-      : Promise.resolve('');
+    const chapterSummary = (input.chapters && input.chapters.length > 0)
+      ? await summarizeChapters(input)
+      : '';
 
-    const prompt = buildPrompt(input);
-    const chapterSummary = await chapterPromise;
-
-    // 如果有章节摘要，追加到 prompt
-    const finalPrompt = chapterSummary
-      ? prompt.replace('Mood and atmosphere: \n', `Mood and atmosphere: ${chapterSummary}\n`)
-      : prompt;
-
-    const images = await callImage2(finalPrompt, input.size, input.n);
+    const prompt = buildPrompt({
+      title: input.title,
+      author: input.author,
+      intro: input.intro,
+      extra: input.extra,
+      genre: input.genre,
+      style: input.style,
+      font: input.font,
+      ratio: input.ratio,
+      chapterSummary,
+    });
+    const images = await callImage2(prompt, input.size, input.n);
 
     return res.status(200).json({
       ok: true,
       images,
       image: images[0],
-      prompt: finalPrompt,
+      prompt,
     });
   } catch (e) {
     const raw = e.message || String(e);
