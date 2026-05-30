@@ -167,6 +167,36 @@
     box-shadow: 0 0 12px rgba(251,191,36,0.3), inset 0 1px 0 rgba(253,230,138,0.2);
   }
 
+  /* ───── 画风缩略图 ───── */
+  .style-chip {
+    position: relative;
+    overflow: hidden;
+    padding: 0 !important;
+  }
+  .style-chip .style-thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+    background-color: rgba(5,11,32,0.5);
+  }
+  .style-chip .style-label {
+    padding: 6px 4px 8px;
+    background: linear-gradient(180deg, transparent, rgba(5,11,32,0.78) 35%);
+  }
+  .style-chip .style-label .style-name {
+    font-weight: 500;
+    font-size: 12px;
+  }
+  .style-chip .style-label .style-desc {
+    font-size: 10px;
+    margin-top: 2px;
+    opacity: 0.65;
+  }
+  .style-chip.active .style-thumb {
+    box-shadow: inset 0 0 0 2px #fbbf24, inset 0 0 24px rgba(251,191,36,0.25);
+  }
+
   /* ───── 标题装饰 ───── */
   .title-deco {
     background: linear-gradient(180deg, #fde68a 0%, #fbbf24 60%, #d97706 100%);
@@ -819,6 +849,7 @@ function applyTemplate(i) {
 
 // ════════════════════════ 渲染选项 ════════════════════════
 const CUSTOM_INPUT_MAP = { genre: 'genreCustom', style: 'styleCustom', font: 'fontCustom' };
+const STYLE_PREVIEW_IDS = ['cinematic','illust','guofeng_da','guofeng_xi','anime','ink','dark','watercolor'];
 
 function syncCustomInput(key) {
   const inputId = CUSTOM_INPUT_MAP[key];
@@ -831,11 +862,21 @@ function syncCustomInput(key) {
 function renderChips(boxId, items, key, twoLine = false) {
   const box = document.getElementById(boxId);
   box.innerHTML = '';
+  const isStyleGrid = key === 'style';
   items.forEach(it => {
     const c = document.createElement('div');
-    c.className = 'chip rounded-xl px-2 py-3 text-center text-xs cursor-pointer';
+    const isPreview = isStyleGrid && STYLE_PREVIEW_IDS.includes(it.id);
+    c.className = isPreview
+      ? 'chip style-chip rounded-xl text-center text-xs cursor-pointer'
+      : 'chip rounded-xl px-2 py-3 text-center text-xs cursor-pointer';
     if (state[key] === it.id) c.classList.add('active');
-    if (twoLine) {
+    if (isPreview) {
+      c.innerHTML = `<div class="style-thumb" style="background-image:url('./assets/style-${it.id}.png')"></div>
+        <div class="style-label">
+          <div class="style-name">${it.name}</div>
+          <div class="style-desc">${it.desc || ''}</div>
+        </div>`;
+    } else if (twoLine) {
       c.innerHTML = `<div class="font-medium">${it.name}</div><div class="text-[10px] mt-0.5 opacity-60">${it.desc || it.hint || ''}</div>`;
     } else {
       c.innerHTML = `<i class="fa ${it.icon} block mb-1 text-base text-gold-500"></i><div>${it.name}</div>`;
