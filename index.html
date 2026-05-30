@@ -750,22 +750,25 @@ function startLoadingRotation(elId, lines, intervalMs = 4500) {
   const el = document.getElementById(elId);
   if (!el) return;
   let idx = 0;
+  let fadeTimer = null;
   el.classList.remove('fade');
   el.textContent = lines[0];
   const tick = () => {
     idx = (idx + 1) % lines.length;
     el.classList.add('fade');
-    setTimeout(() => {
+    fadeTimer = setTimeout(() => {
       el.textContent = lines[idx];
       el.classList.remove('fade');
     }, 280);
   };
-  loadingTimers[elId] = setInterval(tick, intervalMs);
+  loadingTimers[elId] = { interval: setInterval(tick, intervalMs), get fade() { return fadeTimer; }, set fade(v) { fadeTimer = v; } };
 }
 
 function stopLoadingRotation(elId) {
-  if (loadingTimers[elId]) {
-    clearInterval(loadingTimers[elId]);
+  const t = loadingTimers[elId];
+  if (t) {
+    clearInterval(t.interval);
+    clearTimeout(t.fade);
     delete loadingTimers[elId];
   }
   const el = document.getElementById(elId);
