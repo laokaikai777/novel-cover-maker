@@ -3,10 +3,9 @@
 // Claude 仅用于可选的章节浓缩（失败不阻塞主流程）
 // Vercel Serverless Function
 
-const { humanizeError, getConfig, sanitizeTitle } = require('./utils.js');
+const { humanizeError, getConfig, sanitizeTitle, resolveImageSize } = require('./utils.js');
 
 const AUTO = '__auto__';
-const DEFAULT_IMAGE_SIZE = '3:4';
 
 const RATIO_DESCRIPTIONS = {
   '1:1': 'square 1:1 aspect ratio',
@@ -118,7 +117,7 @@ function resolveVisuals(genre) {
 }
 
 function resolveRatioDesc(ratio) {
-  return RATIO_DESCRIPTIONS[ratio] || RATIO_DESCRIPTIONS[DEFAULT_IMAGE_SIZE];
+  return RATIO_DESCRIPTIONS[ratio] || RATIO_DESCRIPTIONS['3:4'];
 }
 
 function formatAuthorCredit(author) {
@@ -216,7 +215,7 @@ async function callImage2(prompt, size, n) {
   const { baseUrl, token } = getConfig();
 
   const count = Math.max(1, Math.min(4, parseInt(n, 10) || 1));
-  const outputSize = size || DEFAULT_IMAGE_SIZE;
+  const outputSize = resolveImageSize(size);
 
   if (process.env.NODE_ENV !== 'production') {
     console.info('[image2] request', { size: outputSize, n: count, promptChars: prompt.length });

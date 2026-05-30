@@ -2,7 +2,7 @@
 // 对话改图：用户自然语言修改要求 → 模板直出 edit prompt → 调 image2 改图
 // Vercel Serverless Function
 
-const { humanizeError, getConfig, sanitizeTitle } = require('./utils.js');
+const { humanizeError, getConfig, sanitizeTitle, resolveImageSize } = require('./utils.js');
 
 function buildEditPrompt(input) {
   const title = sanitizeTitle(input.title);
@@ -33,7 +33,7 @@ async function callImage2Edit(prompt, imageBase64, size) {
   addField('prompt', prompt);
   addField('response_format', 'b64_json');
   addField('n', '1');
-  if (size) addField('size', size);
+  if (size) addField('size', resolveImageSize(size));
   addField('quality', 'medium');
   addField('output_format', 'png');
   addFile('image', 'cover.png', 'image/png', imageBuffer);

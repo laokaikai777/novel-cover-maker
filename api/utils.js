@@ -27,4 +27,20 @@ function sanitizeTitle(str) {
   return (str || '').replace(/[《》〈〉「」『』""'']/g, '').trim();
 }
 
-module.exports = { humanizeError, getConfig, sanitizeTitle };
+const RATIO_SIZE_MAP = {
+  '1:1': '1024x1024',
+  '2:3': '1024x1536',
+  '3:2': '1536x1024',
+  '3:4': '1024x1536',
+  '4:3': '1536x1024',
+  '9:16': '1024x1792',
+  '16:9': '1792x1024',
+  '9:21': '1024x1792',
+  '21:9': '1792x1024',
+};
+
+function resolveImageSize(size) {
+  return RATIO_SIZE_MAP[size] || size || '1024x1536';
+}
+
+module.exports = { humanizeError, getConfig, sanitizeTitle, resolveImageSize };
