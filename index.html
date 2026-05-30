@@ -560,14 +560,16 @@
 
     <!-- 错误态 -->
     <div id="errorBox" class="glass rounded-3xl p-8 text-center hidden">
-      <i class="fa fa-exclamation-circle text-5xl text-rose-300 mb-4"></i>
-      <h3 class="font-serif text-lg text-paper mb-2">画到一半卡住了</h3>
-      <p id="errorMsg" class="text-sm text-paper/70 mb-3"></p>
+      <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full" style="background: radial-gradient(circle, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.04) 60%, transparent 80%);">
+        <i class="fa fa-moon-o text-3xl text-gold-400"></i>
+      </div>
+      <h3 class="font-serif text-lg text-paper mb-2">画师走了一会儿神</h3>
+      <p id="errorMsg" class="text-sm text-paper/70 mb-3 leading-relaxed"></p>
       <details id="errorRaw" class="text-xs text-paper/40 mb-5 hidden">
         <summary class="cursor-pointer hover:text-paper/60">展开看技术细节</summary>
         <p id="errorRawMsg" class="mt-2 text-left bg-night-900/60 rounded-lg p-3 break-all"></p>
       </details>
-      <p class="text-xs text-paper/40 mb-5">你填的资料都还在，回去随时再试</p>
+      <p class="text-xs text-paper/40 mb-5">你填的资料都还在，挑下面任一种方式继续</p>
       <div class="flex flex-col sm:flex-row gap-3 justify-center">
         <button onclick="retrySamePayload()" class="btn-primary rounded-xl py-3 px-6 text-sm">
           <i class="fa fa-refresh mr-1.5"></i>原样再来一次
