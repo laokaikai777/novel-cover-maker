@@ -435,16 +435,6 @@
                 placeholder="例如：主角是穿白衣的少年、画面要有月亮、不要血腥"></textarea>
     </div>
 
-    <!-- 一次出几张 -->
-    <div>
-      <label class="text-xs text-gold-400/80 mb-3 block tracking-wider">一 次 出 几 张</label>
-      <div class="grid grid-cols-3 gap-2.5" id="countGrid"></div>
-      <p class="text-xs text-paper/40 mt-2 leading-relaxed">
-        <i class="fa fa-info-circle text-gold-500/60 mr-1"></i>
-        多出几张挑一张更稳；张数越多等待越久，消耗也越多
-      </p>
-    </div>
-
     <div class="flex gap-3 pt-1">
       <button onclick="goStep(1)" class="chip rounded-xl py-3 px-5 text-sm">
         <i class="fa fa-angle-left mr-1"></i> 上一步
@@ -476,6 +466,19 @@
       <!-- 封面图 -->
       <div class="cover-frame mx-auto md:max-w-md" id="coverFrame">
         <img id="coverImg" alt="封面" class="block w-full" />
+      </div>
+
+      <!-- 改图进度条 -->
+      <div id="editProgress" class="hidden text-center">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="flex-1 h-1.5 bg-night-800 rounded-full overflow-hidden">
+            <div class="h-full bg-gold-500 rounded-full animate-pulse" style="width:60%"></div>
+          </div>
+          <span class="text-xs text-gold-400 whitespace-nowrap">正在修改封面…</span>
+        </div>
+        <button onclick="cancelEdit()" class="chip rounded-full px-4 py-1.5 text-xs">
+          <i class="fa fa-times mr-1"></i>取消
+        </button>
       </div>
 
       <!-- 候选缩略图（仅出多张时显示） -->
@@ -615,12 +618,6 @@ const RATIOS = [
   { id: '16:9', name: '宽屏',     hint: '16:9 · 电影感' },
 ];
 
-const COUNTS = [
-  { id: 1, name: '1 张',  hint: '最快' },
-  { id: 2, name: '2 张',  hint: '挑一张' },
-  { id: 4, name: '4 张',  hint: '横挑竖选' },
-];
-
 // 灵感模板：让冷启动用户 3 秒看到效果
 const TEMPLATES = [
   {
@@ -667,7 +664,6 @@ const state = {
   style: '__auto__',
   font:  '__auto__',
   ratio: '3:4',
-  count: 2,
   chapters: [],   // {name, content}
   lastImageBase64: null,
   lastPayload: null,
@@ -853,7 +849,7 @@ async function generateCover() {
     font:    state.font  === '__custom__' ? customFont  : state.font,
     ratio:   state.ratio,
     size:    state.ratio,
-    n:       state.count,
+    n:       1,
     chapters: state.chapters,
   };
 
@@ -875,7 +871,7 @@ async function callGenerate(payload) {
     if (!data.ok) throw Object.assign(new Error(data.error || '生成失败'), { raw: data.raw });
     const candidates = data.images && data.images.length ? data.images : (data.image ? [data.image] : []);
     if (!candidates.length) throw new Error('AI 没返回任何图');
-    showResult(candidates[0], payload, candidates);
+    showResult(candidates[0], payload);
     state.history = [{ role: 'system', text: '初次生成完成' }];
     renderChat();
   } catch (e) {
@@ -894,6 +890,15 @@ function retryWithAutoStyle() {
 }
 
 // ════════════════════════ 调用后端：对话改图 ════════════════════════
+let editAbortController = null;
+
+function cancelEdit() {
+  if (editAbortController) {
+    editAbortController.abort();
+    editAbortController = null;
+  }
+}
+
 async function editCover() {
   const input = document.getElementById('editInput');
   const text = input.value.trim();
@@ -904,9 +909,12 @@ async function editCover() {
   renderChat();
   input.value = '';
   document.getElementById('editBtn').disabled = true;
-
-  // 把当前结果展示区切回 loading
   document.getElementById('resultBox').classList.add('opacity-50');
+  document.getElementById('editProgress').classList.remove('hidden');
+
+  // 30 秒超时自动取消
+  editAbortController = new AbortController();
+  const timeout = setTimeout(() => editAbortController.abort(), 30000);
 
   try {
     const res = await fetch('/api/edit', {
@@ -920,18 +928,29 @@ async function editCover() {
         intro:       document.getElementById('bookIntro').value.trim(),
         size:        state.ratio,
       }),
+      signal: editAbortController.signal,
     });
+    clearTimeout(timeout);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || '改图失败');
-    showResult(data.image, null);
+    showResult(data.image);
     state.history.push({ role: 'ai', text: '改好了，看看这版' });
     renderChat();
   } catch (e) {
-    state.history.push({ role: 'ai', text: '改图失败：' + e.message });
+    if (e.name === 'AbortError') {
+      toast('已取消修改');
+      state.history.push({ role: 'ai', text: '修改已取消' });
+    } else {
+      toast('改图失败：' + e.message);
+      state.history.push({ role: 'ai', text: '改图失败：' + e.message });
+    }
     renderChat();
   } finally {
+    clearTimeout(timeout);
+    editAbortController = null;
     document.getElementById('editBtn').disabled = false;
     document.getElementById('resultBox').classList.remove('opacity-50');
+    document.getElementById('editProgress').classList.add('hidden');
   }
 }
 
@@ -955,7 +974,7 @@ function showLoading() {
   document.getElementById('resultBox').classList.add('hidden');
   document.getElementById('errorBox').classList.add('hidden');
 }
-function showResult(b64, payload, candidates) {
+function showResult(b64, payload) {
   state.lastImageBase64 = b64;
   document.getElementById('loadingBox').classList.add('hidden');
   document.getElementById('errorBox').classList.add('hidden');
@@ -965,36 +984,7 @@ function showResult(b64, payload, candidates) {
   const dl = document.getElementById('downloadBtn');
   dl.href = img.src;
   if (payload) dl.download = `${payload.title}-封面.png`;
-
-  const candBox = document.getElementById('candidatesBox');
-  const candGrid = document.getElementById('candidatesGrid');
-  if (candidates && candidates.length > 1) {
-    candBox.classList.remove('hidden');
-    candGrid.innerHTML = '';
-    candidates.forEach((c, idx) => {
-      const t = document.createElement('div');
-      t.className = 'thumb' + (c === b64 ? ' active' : '');
-      t.innerHTML = `<img alt="候选 ${idx + 1}" src="data:image/png;base64,${c}" />`;
-      t.onclick = () => pickCandidate(c, payload);
-      candGrid.appendChild(t);
-    });
-  } else {
-    candBox.classList.add('hidden');
-    candGrid.innerHTML = '';
-  }
-}
-
-function pickCandidate(b64, payload) {
-  state.lastImageBase64 = b64;
-  const img = document.getElementById('coverImg');
-  img.src = `data:image/png;base64,${b64}`;
-  const dl = document.getElementById('downloadBtn');
-  dl.href = img.src;
-  if (payload) dl.download = `${payload.title}-封面.png`;
-  document.querySelectorAll('#candidatesGrid .thumb').forEach(el => {
-    const inner = el.querySelector('img');
-    el.classList.toggle('active', inner && inner.src === img.src);
-  });
+  document.getElementById('candidatesBox').classList.add('hidden');
 }
 function showError(msg, raw) {
   document.getElementById('loadingBox').classList.add('hidden');
@@ -1026,7 +1016,6 @@ renderChips('genreGrid', GENRES, 'genre', false);
 renderChips('styleGrid', STYLES, 'style', true);
 renderChips('fontGrid',  FONTS,  'font',  true);
 renderChips('ratioGrid', RATIOS, 'ratio', true);
-renderChips('countGrid', COUNTS, 'count', true);
 </script>
 
 </body>

@@ -101,15 +101,20 @@ function resolveGenre(genre, title, intro) {
 }
 
 function resolveStyle(style, genre) {
-  if (style && style !== AUTO && STYLE_LABEL[style]) return STYLE_LABEL[style];
-  const key = GENRE_DEFAULT_STYLE[genre] || 'illust';
-  return STYLE_LABEL[key];
+  if (!style || style === AUTO) {
+    const key = GENRE_DEFAULT_STYLE[genre] || 'illust';
+    return STYLE_LABEL[key];
+  }
+  // 预设键 → 展开为英文描述；自定义字符串 → 直接作为画风描述
+  return STYLE_LABEL[style] || style;
 }
 
 function resolveFont(font, genre) {
-  if (font && font !== AUTO && FONT_LABEL[font]) return FONT_LABEL[font];
-  const key = GENRE_DEFAULT_FONT[genre] || 'heiti';
-  return FONT_LABEL[key];
+  if (!font || font === AUTO) {
+    const key = GENRE_DEFAULT_FONT[genre] || 'heiti';
+    return FONT_LABEL[key];
+  }
+  return FONT_LABEL[font] || font;
 }
 
 function resolveVisuals(genre) {
@@ -139,8 +144,9 @@ function buildPrompt({ title: rawTitle, author, intro, genre, style, font, ratio
 
   return `Create a professional book cover illustration, ${ratioDesc}.
 
+Novel genre: ${resolvedGenre}.
 Visible cover text: book title "${title}" and author credit "${authorCredit}".
-Genre and synopsis: ${intro}
+Synopsis: ${intro}
 
 Style: ${styleText}.
 ${genreVisual ? `Key visual elements: ${genreVisual}.` : ''}
