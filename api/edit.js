@@ -46,7 +46,6 @@ async function callImage2Edit(prompt, imageBase64, size) {
     headers: {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'Authorization': `Bearer ${token}`,
-      'Content-Length': body.length,
     },
     body,
   });
